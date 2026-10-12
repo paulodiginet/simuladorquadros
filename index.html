@@ -1,0 +1,1761 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Simulador de Quadros</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700&display=swap">
+<style>
+/* Layout: painel de entrada &#xe0; esquerda, pr&#xe9;via (folha branca = o que vai para o cliente) &#xe0; direita; empilha no celular */
+:root{
+  --bg:#ECEDEA; --panel:#FFFFFF; --ink:#22262A; --muted:#5E676B; --line:#D5D9D5; --field:#F6F7F5;
+  --accent:#B08A3E; --accent-ink:#FFFFFF;
+  --warnbg:#FFF3DD; --warnfg:#7A4300; --errbg:#FCE6E6; --errfg:#9E1A1A;
+  --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#15191A; --panel:#1F2527; --ink:#E7EBE9; --muted:#9AA6A8; --line:#34403E; --field:#192022;
+  --accent:#D2AE5E; --accent-ink:#1A1408;
+  --warnbg:#3A2C12; --warnfg:#F4C982; --errbg:#3D1A1A; --errfg:#F5A3A3; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#15191A; --panel:#1F2527; --ink:#E7EBE9; --muted:#9AA6A8; --line:#34403E; --field:#192022;
+  --accent:#D2AE5E; --accent-ink:#1A1408;
+  --warnbg:#3A2C12; --warnfg:#F4C982; --errbg:#3D1A1A; --errfg:#F5A3A3; color-scheme:dark }
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;margin:0}
+.wrap{max-width:1380px;margin:0 auto;padding-inline:16px;padding-block:20px 40px}
+header.top{margin-bottom:18px}
+h1{font-family:var(--display);font-weight:700;font-size:2.1rem;line-height:1;margin:0;letter-spacing:.01em}
+h1 span{color:var(--accent)}
+.sub{color:var(--muted);margin:4px 0 0}
+.grid{display:grid;grid-template-columns:minmax(0,370px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}}
+form{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px;display:flex;flex-direction:column;gap:18px}
+fieldset{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;min-width:0}
+legend{font-family:var(--display);font-weight:700;font-size:.95rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:0;margin-bottom:8px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label{display:flex;flex-direction:column;gap:4px;font-size:.85rem;font-weight:600;min-width:0}
+label small{font-weight:400;color:var(--muted)}
+input[type=text],select{font:inherit;font-size:1rem;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:100%;min-width:0;font-variant-numeric:tabular-nums}
+input[type=color]{width:42px;height:38px;border:1px solid var(--line);border-radius:6px;background:var(--field);padding:2px;cursor:pointer}
+input:focus,select:focus,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.check{flex-direction:row;align-items:center;gap:8px;font-weight:500}
+.check input{width:18px;height:18px;accent-color:var(--accent)}
+#sizesList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+details{border-top:1px solid var(--line);padding-top:12px}
+summary{cursor:pointer;font-family:var(--display);font-weight:700;font-size:.95rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+details[open] summary{margin-bottom:12px}
+.stack{display:flex;flex-direction:column;gap:10px}
+.btn{font:inherit;font-weight:600;border-radius:6px;padding:10px 16px;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:transparent}
+.btn.primary.ghost{background:var(--accent)}
+.btn.sm{padding:6px 10px;font-size:.85rem}
+.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.swatches{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.sw{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 2px;border:1px solid var(--line);border-radius:8px;background:var(--field);cursor:pointer;font:inherit;font-size:.75rem;color:var(--ink);min-width:0}
+.sw i{display:block;width:30px;height:30px;border-radius:4px;box-shadow:inset 0 0 0 3px rgba(0,0,0,.18),inset 0 0 0 6px rgba(255,255,255,.12)}
+.sw span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sw[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.wallPresets{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.wp{width:28px;height:28px;border-radius:50%;border:1px solid var(--line);cursor:pointer;padding:0}
+.wp[aria-pressed="true"]{box-shadow:0 0 0 2px var(--accent)}
+.pickBox{border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--field)}
+.pickBox canvas{display:block;width:100%;height:auto;border-radius:6px;cursor:crosshair;touch-action:manipulation}
+.pickRow{display:flex;align-items:center;gap:10px;font-size:.9rem;font-variant-numeric:tabular-nums}
+.pickSw{width:34px;height:34px;border-radius:6px;border:1px solid var(--line);background:transparent;flex:none}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--field);border:1px solid var(--line);border-radius:8px;padding:4px}
+.segb{font:inherit;font-weight:600;border:0;border-radius:6px;padding:8px 10px;background:transparent;color:var(--muted);cursor:pointer}
+.segb[aria-pressed="true"]{background:var(--panel);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.hint.step{color:var(--ink);background:var(--field);border-left:3px solid var(--accent);padding:8px 10px;border-radius:4px}
+#photoCanvas{display:block;width:100%;height:auto;min-width:0!important;border-radius:4px;user-select:none;touch-action:none}
+.photoBar{display:flex;flex-direction:column;gap:8px;background:#F6F3EC;border:1px solid #E3DCCB;border-radius:6px;padding:10px 12px;margin-bottom:8px;color:#22262A}
+.photoBar p{margin:0;font-size:.9rem}
+.dragSeg{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:.85rem;margin-right:6px}
+.photoBar .btn{background:#FFFFFF;color:#22262A;border-color:#D5D0C4}
+.photoBar .btn.primary{background:#B08A3E;border-color:#B08A3E;color:#FFFFFF}
+.photoBar .refRow{display:grid;grid-template-columns:repeat(2,minmax(0,160px));gap:10px}
+.photoBar input{background:#FFFFFF;color:#22262A}
+.photoEmpty{padding:40px 24px;text-align:center;color:#5E676B}
+.photoExtra{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:12px}
+.photoExtra figure{margin:0}.photoExtra canvas{width:100%;height:auto;display:block;border-radius:4px}
+.photoExtra figcaption{font-size:.85rem;color:#3A4044;margin-top:4px;font-weight:600}
+.hint{margin:0;font-size:.82rem;color:var(--muted)}
+.colorEdit{display:grid;grid-template-columns:42px minmax(0,1fr) minmax(0,110px);gap:8px;align-items:center}
+.colorEdit input[type=text],.colorEdit select{padding:6px 8px;font-size:.9rem}
+.out{display:flex;flex-direction:column;gap:14px;min-width:0}
+@media (min-width:901px){.out{position:sticky;top:calc(env(safe-area-inset-top, 0px) + 12px)}}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:.85rem;font-variant-numeric:tabular-nums}
+.chip b{font-weight:700}
+.chip.alert{background:var(--warnbg);color:var(--warnfg);border-color:transparent}
+.msg{border-radius:8px;padding:10px 14px;font-size:.92rem}
+.msg.warn{background:var(--warnbg);color:var(--warnfg)}
+.msg.err{background:var(--errbg);color:var(--errfg)}
+.msg ul{margin:0;padding-left:18px}
+.status{font-size:.88rem;color:var(--muted);min-height:1.2em}
+.sheet{background:#FFFFFF;border:1px solid var(--line);border-radius:6px;padding:8px;overflow-x:auto;box-shadow:0 1px 2px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.06)}
+.sheet > svg{display:block;width:100%;height:auto;min-width:520px}
+.artList{display:flex;flex-wrap:wrap;gap:6px}
+.artList img{width:48px;height:48px;object-fit:cover;border-radius:4px;border:1px solid var(--line)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Simulador de <span>Quadros</span></h1>
+    <p class="sub">Mostre ao cliente a propor&#xe7;&#xe3;o dos quadros no espa&#xe7;o, com a moldura na cor escolhida.</p>
+  </header>
+
+  <div class="grid">
+    <form id="f" autocomplete="off">
+      <div class="seg" role="group" aria-label="Tipo de simula&#xe7;&#xe3;o">
+        <button type="button" class="segb" id="modeIl" aria-pressed="true">Ilustra&#xe7;&#xe3;o</button>
+        <button type="button" class="segb" id="modeFoto" aria-pressed="false">Foto do cliente</button>
+      </div>
+      <fieldset>
+        <legend>Cliente</legend>
+        <div class="row">
+          <label>Nome <input type="text" id="cliente" placeholder="Opcional"></label>
+          <label>Ambiente <input type="text" id="ambiente" placeholder="Ex.: sala"></label>
+        </div>
+      </fieldset>
+
+      <fieldset id="fsFoto" hidden>
+        <legend>Foto do cliente</legend>
+        <div class="actions">
+          <label class="btn ghost sm" for="photoFile" style="flex-direction:row">Carregar foto</label>
+          <input type="file" id="photoFile" accept="image/*" hidden>
+          <button type="button" class="btn ghost sm" id="photoAdjust" hidden>Ajustar cantos</button>
+          <button type="button" class="btn ghost sm" id="photoReset" hidden>Remarcar do zero</button>
+          <button type="button" class="btn ghost sm" id="photoCenter" hidden>Centralizar quadros</button>
+        </div>
+        <p class="hint step" id="photoStep"></p>
+        <div class="row">
+          <label>Largura da refer&#xea;ncia <small>cm reais</small><input type="text" id="refW" inputmode="decimal" placeholder="ex.: 80"></label>
+          <label>Altura da refer&#xea;ncia <small>cm reais</small><input type="text" id="refH" inputmode="decimal" placeholder="ex.: 210"></label>
+        </div>
+        <label>Base da refer&#xea;ncia <small>cm acima do piso; 0 para a parede inteira ou uma porta</small><input type="text" id="refBase" inputmode="decimal" placeholder="0"></label>
+        <label>Luz sobre o quadro <small id="lightVal">autom&#xe1;tica</small><input type="range" id="photoLight" min="60" max="140" step="1" value="100"></label>
+        <label>Tom da luz <small id="warmVal">neutro</small><input type="range" id="photoWarm" min="-20" max="20" step="1" value="0"></label>
+      </fieldset>
+
+      <fieldset id="fsParede">
+        <legend>Parede (cm)</legend>
+        <div class="row">
+          <label>Largura <input type="text" id="wallW" inputmode="decimal"></label>
+          <label>Altura <input type="text" id="wallH" inputmode="decimal"></label>
+        </div>
+        <div class="wallPresets" id="wallPresets"></div>
+        <div class="actions">
+          <label class="btn ghost sm" for="pickFile" style="flex-direction:row">Capturar cor de uma foto</label>
+          <input type="file" id="pickFile" accept="image/*" hidden>
+        </div>
+        <div id="pickBox" class="pickBox stack" hidden>
+          <p class="hint">Toque na parede, longe de sombras, reflexos e da luz direta do sol. Pode tocar v&#xe1;rias vezes at&#xe9; achar o ponto certo.</p>
+          <canvas id="pickCanvas" width="10" height="10" aria-label="Foto para capturar a cor da parede"></canvas>
+          <div class="pickRow"><span class="pickSw" id="pickSw"></span><span id="pickHex">Nenhum ponto escolhido</span></div>
+          <label>Tamanho da &#xe1;rea analisada <small id="pickRVal">m&#xe9;dia</small>
+            <input type="range" id="pickR" min="2" max="15" step="1" value="7">
+          </label>
+          <label>Ajuste de luz <small>se a foto saiu mais escura ou mais clara que a parede real</small>
+            <input type="range" id="pickAdj" min="-30" max="30" step="1" value="0">
+          </label>
+          <div class="actions">
+            <button type="button" class="btn primary sm" id="pickUse" disabled>Usar esta cor</button>
+            <button type="button" class="btn ghost sm" id="pickCancel">Cancelar</button>
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Quadros</legend>
+        <div class="row">
+          <label>Quantidade <small>1 a 10</small><input type="text" id="qty" inputmode="numeric"></label>
+          <label id="gapLabel">Dist&#xe2;ncia entre quadros <small>cm</small><input type="text" id="gap" inputmode="decimal"></label>
+        </div>
+        <label id="sizeLabel">Tamanho final LxA <small>com moldura, cm</small><input type="text" id="size" placeholder="73x103"></label>
+        <label class="check"><input type="checkbox" id="diff"> Tamanhos diferentes</label>
+        <div id="sizesList" hidden></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Moldura</legend>
+        <div class="swatches" id="swatches"></div>
+        <label class="check"><input type="checkbox" id="compare"> Comparar at&#xe9; 3 cores lado a lado</label>
+        <p class="hint" id="compareHint" hidden>Toque nas cores para incluir ou tirar da compara&#xe7;&#xe3;o.</p>
+      </fieldset>
+
+      <fieldset>
+        <legend>Arte</legend>
+        <div class="actions">
+          <label class="btn ghost sm" for="artFile" style="flex-direction:row">Carregar imagens</label>
+          <input type="file" id="artFile" accept="image/*" multiple hidden>
+          <button type="button" class="btn ghost sm" id="artClear" hidden>Usar arte de exemplo</button>
+        </div>
+        <div class="artList" id="artList"></div>
+        <label id="artModeLabel" hidden>Como usar as imagens
+          <select id="artMode">
+            <option value="each">Uma imagem por quadro, na ordem</option>
+            <option value="same">A mesma imagem em todos</option>
+            <option value="split">Uma imagem dividida entre os quadros</option>
+          </select>
+        </label>
+        <div id="framingBox" class="stack" hidden>
+          <p class="hint">Use os controles abaixo ou arraste a imagem na pr&#xe9;via (no modo foto, escolha "a imagem dentro do quadro" na barra acima da foto). Ela nunca deixa espa&#xe7;o vazio no quadro.</p>
+          <div class="row">
+            <label>Quadro <select id="frTarget"></select></label>
+            <label>Zoom <small id="zoomVal">100%</small><input type="range" id="frZoom" min="100" max="300" step="5" value="100"></label>
+          </div>
+          <div class="row">
+            <label>Horizontal <small id="frXVal">centro</small><input type="range" id="frX" min="0" max="100" step="1" value="50"></label>
+            <label>Vertical <small id="frYVal">centro</small><input type="range" id="frY" min="0" max="100" step="1" value="50"></label>
+          </div>
+          <p class="hint" id="frNoMove" hidden></p>
+          <div class="actions"><button type="button" class="btn ghost sm" id="frReset">Centralizar</button></div>
+        </div>
+        <p class="hint" id="artHint">Sem imagem, a pr&#xe9;via usa uma arte de exemplo.</p>
+      </fieldset>
+
+      <fieldset>
+        <legend>M&#xf3;vel</legend>
+        <label>Embaixo dos quadros
+          <select id="furn">
+            <option value="none">Nenhum (parede livre)</option>
+            <option value="sofa">Sof&#xe1;</option>
+            <option value="cama">Cama</option>
+            <option value="aparador">Aparador</option>
+            <option value="outro">Outro m&#xf3;vel</option>
+          </select>
+        </label>
+        <div id="furnBox" class="stack" hidden>
+          <div class="row">
+            <label>Largura <small>cm</small><input type="text" id="furnW" inputmode="decimal"></label>
+            <label><span id="furnHLabel">Altura</span> <small id="furnHHint">cm</small><input type="text" id="furnH" inputmode="decimal"></label>
+          </div>
+          <div class="row">
+            <label>Quadros acima do m&#xf3;vel <small>cm</small><input type="text" id="furnGap" inputmode="decimal"></label>
+            <label id="furnColorLabel">Cor do m&#xf3;vel <input type="color" id="furnColor"></label>
+          </div>
+          <label class="check" id="nsLabel"><input type="checkbox" id="nightstands"> Criados-mudos com abajur</label>
+        </div>
+      </fieldset>
+
+      <fieldset id="fsEscala">
+        <legend>Escala</legend>
+        <label class="check"><input type="checkbox" id="person"> Silhueta de mulher como refer&#xea;ncia</label>
+        <label id="personHLabel">Altura da silhueta <small>cm</small><input type="text" id="personH" inputmode="decimal" placeholder="165"></label>
+        <label class="check"><input type="checkbox" id="showDims"> Mostrar medidas na pr&#xe9;via</label>
+      </fieldset>
+
+      <details>
+        <summary>Avan&#xe7;ado</summary>
+        <div class="stack">
+          <div class="row">
+            <label>Deslocar m&#xf3;vel <small>cm (+ direita)</small><input type="text" id="furnShift" inputmode="decimal"></label>
+            <label>Deslocar quadros <small>cm (+ direita)</small><input type="text" id="setShift" inputmode="decimal"></label>
+          </div>
+          <div class="row">
+            <label>Centro na parede livre <small>cm do piso</small><input type="text" id="center" inputmode="decimal"></label>
+            <label>Pessoa do lado
+              <select id="personSide"><option value="esq">Esquerdo</option><option value="dir">Direito</option></select>
+            </label>
+          </div>
+        </div>
+      </details>
+
+      <details id="colorsBox">
+        <summary>Cores de moldura</summary>
+        <div class="stack" id="colorEditor"></div>
+        <div class="actions" style="margin-top:10px">
+          <button type="button" class="btn ghost sm" id="colorsReset">Restaurar cores padr&#xe3;o</button>
+        </div>
+      </details>
+
+      <div class="actions">
+        <button type="button" class="btn ghost" id="btnExample">Carregar exemplo</button>
+      </div>
+    </form>
+
+    <section class="out">
+      <div class="bar">
+        <div class="chips" id="chips"></div>
+        <div class="actions">
+          <button type="button" class="btn primary" id="btnPng">Baixar imagem (PNG)</button>
+          <button type="button" class="btn" id="btnPdf">Baixar PDF</button>
+        </div>
+      </div>
+      <div class="status" id="status" aria-live="polite"></div>
+      <div id="msgs"></div>
+      <div class="sheet" id="sheet"></div>
+    </section>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+// @@CORE START
+const DEFAULT_COLORS = [ // amostradas da foto do mostru\u00e1rio Moldura Caixa
+  { id:'c1', name:'Dourada',     hex:'#B78B2E', finish:'metal' },
+  { id:'c2', name:'Preta',       hex:'#222226', finish:'madeira' },
+  { id:'c3', name:'Branca',      hex:'#F1F1EC', finish:'fosco' },
+  { id:'c4', name:'Marrom',      hex:'#784F39', finish:'madeira' },
+  { id:'c5', name:'Avel\u00e3',       hex:'#CF8846', finish:'madeira' },
+  { id:'c6', name:'Mel',         hex:'#D5A15D', finish:'madeira' },
+  { id:'c7', name:'Am\u00eandoa',     hex:'#D7AA80', finish:'madeira' },
+  { id:'c8', name:'Seminatural', hex:'#F3DBAA', finish:'madeira' }
+];
+const FURN = {
+  sofa:     { art:'o', name:'Sof\u00e1',     w:220, h:85,  gap:30, color:'#CBC2B4', hLabel:'Altura do encosto', hHint:'topo do encosto, cm' },
+  cama:     { art:'a', name:'Cama',     w:160, h:120, gap:20, color:'#B7AC9C', hLabel:'Altura da cabeceira', hHint:'topo, cm' },
+  aparador: { art:'o', name:'Aparador', w:160, h:80,  gap:40, color:'#8E6C4F', hLabel:'Altura do aparador', hHint:'tampo, cm' },
+  outro:    { art:'o', name:'M\u00f3vel',    w:120, h:75,  gap:30, color:'#9A948C', hLabel:'Altura do m\u00f3vel', hHint:'topo, cm' }
+};
+const FRAME_T = 2; // espessura da moldura, cm
+
+function num(v, def){
+  if (v === undefined || v === null) return def;
+  const s = String(v).trim().replace(',', '.');
+  if (s === '') return def;
+  const n = Number(s);
+  return isFinite(n) ? n : NaN;
+}
+function parseSize(s){
+  const m = String(s || '').trim().match(/^(\d+(?:[.,]\d+)?)\s*[x\u00d7X*]\s*(\d+(?:[.,]\d+)?)$/);
+  return m ? { L: num(m[1]), A: num(m[2]) } : null;
+}
+const r2 = v => Math.round(v * 2) / 2;
+function fmt(v){ const r = r2(v); return (Math.abs(r % 1) > 0 ? r.toFixed(1) : String(r)).replace('.', ','); }
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+function hexToRgb(h){ const m = String(h).replace('#','').match(/^([0-9a-f]{6})$/i); const n = m ? parseInt(m[1], 16) : 0x888888; return [(n>>16)&255, (n>>8)&255, n&255]; }
+function shade(h, amt){ // amt -1..1
+  const [r,g,b] = hexToRgb(h);
+  const f = c => Math.round(amt >= 0 ? c + (255 - c) * amt : c * (1 + amt));
+  return '#' + [f(r),f(g),f(b)].map(v => clamp(v,0,255).toString(16).padStart(2,'0')).join('');
+}
+function lum(h){ const [r,g,b] = hexToRgb(h); return (0.299*r + 0.587*g + 0.114*b) / 255; }
+
+function compute(s){
+  const errors = [], warnings = [];
+  const W = num(s.wallW), H = num(s.wallH, 270);
+  const n = Math.round(num(s.qty));
+  if (!(W > 0)) errors.push('Informe a largura da parede.');
+  if (!(H > 0)) errors.push('Informe a altura da parede.');
+  if (!(n >= 1 && n <= 10)) errors.push('A quantidade de quadros deve ser de 1 a 10.');
+  const gap = n > 1 ? num(s.gap, 10) : 0;
+  if (n > 1 && !(gap >= 0)) errors.push('A dist\u00e2ncia entre quadros precisa ser um n\u00famero.');
+  const c = num(s.center, 160), furnShift = num(s.furnShift, 0), setShift = num(s.setShift, 0);
+  if (![c, furnShift, setShift].every(isFinite)) errors.push('Confira os campos avan\u00e7ados: use apenas n\u00fameros.');
+  const sizes = [];
+  if (n >= 1 && n <= 10){
+    for (let i = 0; i < n; i++){
+      const p = parseSize(s.diff ? (s.sizes || [])[i] : s.size);
+      if (!p || !(p.L > 2 * FRAME_T) || !(p.A > 2 * FRAME_T)){
+        errors.push(s.diff ? `Quadro ${i+1}: informe o tamanho no formato LxA, ex.: 73x103.` : 'Informe o tamanho no formato LxA, ex.: 73x103.');
+        if (!s.diff) break;
+      }
+      sizes.push(p);
+    }
+  }
+  const type = FURN[s.furn] ? s.furn : 'none';
+  let fur = null;
+  if (type !== 'none'){
+    const fw = num(s.furnW, FURN[type].w), fh = num(s.furnH, FURN[type].h), fg = num(s.furnGap, FURN[type].gap);
+    if (!(fw > 0) || !(fh > 0)) errors.push('Informe largura e altura do m\u00f3vel.');
+    if (!(fg >= 0)) errors.push('A dist\u00e2ncia acima do m\u00f3vel precisa ser um n\u00famero.');
+    fur = { type, art: FURN[type].art, name: FURN[type].name, w: fw, h: fh, gap: fg, color: s.furnColor || FURN[type].color, ns: type === 'cama' && !!s.nightstands };
+  }
+  if (errors.length) return { ok:false, errors, warnings };
+
+  const totalW = sizes.reduce((a, p) => a + p.L, 0) + (n - 1) * gap;
+  if (totalW > W){ errors.push(`O conjunto mede ${fmt(totalW)} cm e n\u00e3o cabe na parede de ${fmt(W)} cm.`); return { ok:false, errors, warnings }; }
+  if (fur){
+    fur.x = W / 2 + furnShift - fur.w / 2;
+    const nsW = fur.ns ? 2 * (48 + 6) : 0;
+    if (fur.x - nsW / 2 < -0.01 || fur.x + fur.w + nsW / 2 > W + 0.01) warnings.push('O m\u00f3vel passa da largura da parede. Confira a largura ou o deslocamento.');
+    if (fur.h >= H) { errors.push('O m\u00f3vel \u00e9 mais alto que a parede.'); return { ok:false, errors, warnings }; }
+  }
+  const axis = (fur ? fur.x + fur.w / 2 : W / 2) + setShift;
+  const left = axis - totalW / 2;
+  if (left < 0 || left + totalW > W) warnings.push('Parte do conjunto sai da parede. Ajuste o deslocamento.');
+  const Amax = Math.max(...sizes.map(p => p.A));
+  const frames = [];
+  let x = left;
+  sizes.forEach((p, i) => {
+    const top = fur ? fur.h + fur.gap + p.A : c + p.A / 2;
+    frames.push({ i: i + 1, L: p.L, A: p.A, x0: x, top, center: top - p.A / 2 });
+    x += p.L + gap;
+  });
+  const maxTop = Math.max(...frames.map(f => f.top));
+  if (maxTop > H) errors.push(`O topo dos quadros ficaria a ${fmt(maxTop)} cm, acima da altura da parede.`);
+  else if (H - maxTop < 15) warnings.push(`O topo dos quadros fica a apenas ${fmt(H - maxTop)} cm do teto.`);
+  if (errors.length) return { ok:false, errors, warnings };
+
+  let ratio = null;
+  if (fur){
+    ratio = totalW / fur.w;
+    if (ratio > 1.0) warnings.push(`O conjunto (${fmt(totalW)} cm) \u00e9 mais largo que ${fur.art} ${fur.name.toLowerCase()} (${fmt(fur.w)} cm).`);
+    else if (ratio < 0.4) warnings.push(`O conjunto ocupa s\u00f3 ${Math.round(ratio * 100)}% da largura ${fur.art === 'a' ? 'da' : 'do'} ${fur.name.toLowerCase()}. Pode parecer pequeno; considere um tamanho maior ou mais quadros.`);
+  }
+  // pessoa de refer\u00eancia: nunca sobre o m\u00f3vel nem sob os quadros
+  let person = null;
+  if (s.person){
+    const ph = clamp(num(s.personH, 165) || 165, 120, 200);
+    const half = 22 * ph / 165, margin = 8;
+    const blocks = [];
+    if (fur){ const ext = fur.type === 'cama' ? 4 + (fur.ns ? 60 : 0) : 0; blocks.push([fur.x - ext, fur.x + fur.w + ext]); }
+    frames.forEach(f => { if (f.top - f.A < ph + 6) blocks.push([f.x0, f.x0 + f.L]); });
+    const cands = [];
+    if (blocks.length){
+      const minX = Math.min(...blocks.map(b => b[0])), maxX = Math.max(...blocks.map(b => b[1]));
+      cands.push({ side: 'esq', x: minX - margin - half }, { side: 'dir', x: maxX + margin + half });
+    } else cands.push({ side: 'esq', x: left - margin - half }, { side: 'dir', x: left + totalW + margin + half });
+    const ok = cands.filter(c => c.x - half >= 2 && c.x + half <= W - 2);
+    const pick = ok.find(c => c.side === (s.personSide === 'dir' ? 'dir' : 'esq')) || ok[0];
+    if (pick) person = { x: pick.x, h: ph };
+    else warnings.push('N\u00e3o h\u00e1 espa\u00e7o livre ao lado do m\u00f3vel para a silhueta. Ela foi ocultada; aumente a largura da parede ou desloque o m\u00f3vel.');
+  }
+  return { ok:true, errors, warnings, W, H, n, gap, totalW, left, frames, fur, ratio, person, Amax };
+}
+
+// ---------- desenho ----------
+function artExample(k, ax, ay, aw, ah){
+  const pals = [
+    ['#EDE6DA','#C8794E','#2F4A5A','#D9B77E'],
+    ['#E9E7E1','#7D8F7A','#C9A46B','#3D3A36'],
+    ['#F0E9E0','#B5533C','#E1C9A6','#5D6F7E'],
+    ['#E6E2DA','#2E3D4F','#C8A35F','#A9B4A6']
+  ];
+  const P = pals[k % pals.length];
+  const r = Math.min(aw, ah);
+  let o = `<rect x="${ax}" y="${ay}" width="${aw}" height="${ah}" fill="${P[0]}"/>`;
+  const v = k % 3;
+  if (v === 0){
+    o += `<circle cx="${ax + aw*0.62}" cy="${ay + ah*0.36}" r="${r*0.24}" fill="${P[1]}"/>`;
+    o += `<path d="M${ax + aw*0.18} ${ay + ah*0.86} V${ay + ah*0.52} a${aw*0.2} ${aw*0.2} 0 0 1 ${aw*0.4} 0 V${ay + ah*0.86} Z" fill="${P[2]}"/>`;
+    o += `<rect x="${ax}" y="${ay + ah*0.86}" width="${aw}" height="${ah*0.14}" fill="${P[3]}"/>`;
+  } else if (v === 1){
+    o += `<rect x="${ax}" y="${ay + ah*0.58}" width="${aw}" height="${ah*0.42}" fill="${P[1]}"/>`;
+    o += `<circle cx="${ax + aw*0.35}" cy="${ay + ah*0.58}" r="${r*0.3}" fill="${P[2]}"/>`;
+    o += `<rect x="${ax + aw*0.55}" y="${ay + ah*0.2}" width="${aw*0.22}" height="${ah*0.5}" rx="${aw*0.11}" fill="${P[3]}"/>`;
+  } else {
+    o += `<path d="M${ax} ${ay + ah*0.72} Q${ax + aw*0.3} ${ay + ah*0.5} ${ax + aw*0.55} ${ay + ah*0.66} T${ax + aw} ${ay + ah*0.58} V${ay + ah} H${ax} Z" fill="${P[2]}"/>`;
+    o += `<circle cx="${ax + aw*0.3}" cy="${ay + ah*0.3}" r="${r*0.16}" fill="${P[1]}"/>`;
+    o += `<rect x="${ax + aw*0.6}" y="${ay + ah*0.14}" width="${aw*0.08}" height="${ah*0.5}" fill="${P[3]}"/>`;
+  }
+  return o;
+}
+
+function frameSVG(f, col, Y, uid, art, flat){
+  const t = FRAME_T, x = f.x0, y = Y(f.top), L = f.L, A = f.A;
+  const c = col.hex;
+  let o = '';
+  // sombra projetada (camadas suaves, compat\u00edvel com qualquer renderizador)
+  if (!flat) [[2.6, 0.05], [1.7, 0.07], [0.9, 0.09]].forEach(([e, op]) => {
+    o += `<rect x="${x - e*0.6 + 0.9}" y="${y - e*0.3 + 1.8}" width="${L + e*1.2}" height="${A + e*1.0}" rx="${e}" fill="#000" fill-opacity="${op}"/>`;
+  });
+  // moldura com volume: topo e esquerda recebem luz, base e direita ficam em sombra
+  const k = col.finish === 'metal' ? 1.6 : 1;
+  o += `<rect x="${x}" y="${y}" width="${L}" height="${A}" fill="${c}"/>`;
+  o += `<polygon points="${x},${y} ${x+L},${y} ${x+L-t},${y+t} ${x+t},${y+t}" fill="${shade(c, 0.14*k)}"/>`;
+  o += `<polygon points="${x},${y} ${x+t},${y+t} ${x+t},${y+A-t} ${x},${y+A}" fill="${shade(c, 0.07*k)}"/>`;
+  o += `<polygon points="${x+L},${y} ${x+L},${y+A} ${x+L-t},${y+A-t} ${x+L-t},${y+t}" fill="${shade(c, -0.10*k)}"/>`;
+  o += `<polygon points="${x},${y+A} ${x+L},${y+A} ${x+L-t},${y+A-t} ${x+t},${y+A-t}" fill="${shade(c, -0.18*k)}"/>`;
+  if (col.finish === 'madeira'){
+    // veio discreto
+    for (let i = 1; i < 4; i++){
+      const yy = y + t * i / 4, xx = x + t * i / 4;
+      o += `<line x1="${x + t}" y1="${yy}" x2="${x + L - t}" y2="${yy}" stroke="${shade(c, -0.12)}" stroke-width="0.12" opacity="0.5"/>`;
+      o += `<line x1="${x + t}" y1="${y + A - t * i / 4}" x2="${x + L - t}" y2="${y + A - t * i / 4}" stroke="${shade(c, -0.12)}" stroke-width="0.12" opacity="0.5"/>`;
+      o += `<line x1="${xx}" y1="${y + t}" x2="${xx}" y2="${y + A - t}" stroke="${shade(c, -0.12)}" stroke-width="0.12" opacity="0.5"/>`;
+      o += `<line x1="${x + L - t * i / 4}" y1="${y + t}" x2="${x + L - t * i / 4}" y2="${y + A - t}" stroke="${shade(c, -0.12)}" stroke-width="0.12" opacity="0.5"/>`;
+    }
+  }
+  if (col.finish === 'metal'){
+    o += `<line x1="${x + 0.3}" y1="${y + 0.35}" x2="${x + L - 0.6}" y2="${y + 0.35}" stroke="#FFFFFF" stroke-width="0.25" opacity="0.55"/>`;
+  }
+  // arte
+  const ax = x + t, ay = y + t, aw = L - 2*t, ah = A - 2*t;
+  o += `<clipPath id="${uid}"><rect x="${ax}" y="${ay}" width="${aw}" height="${ah}"/></clipPath>`;
+  o += `<g clip-path="url(#${uid})">${art(ax, ay, aw, ah)}`;
+  // sombra interna da moldura sobre a arte
+  o += `<rect x="${ax}" y="${ay}" width="${aw}" height="0.7" fill="#000" fill-opacity="0.16"/>`;
+  o += `<rect x="${ax}" y="${ay}" width="0.5" height="${ah}" fill="#000" fill-opacity="0.10"/></g>`;
+  o += `<rect x="${ax}" y="${ay}" width="${aw}" height="${ah}" fill="none" stroke="#000" stroke-opacity="0.22" stroke-width="0.15"/>`;
+  return o;
+}
+
+// ---------- utilit\u00e1rios de desenho ----------
+function makeG(uid){
+  return {
+    d: '', i: 0,
+    lin(stops, dir){
+      const id = `${uid}g${this.i++}`;
+      const [x2, y2] = dir === 'h' ? [1, 0] : [0, 1];
+      this.d += `<linearGradient id="${id}" x1="0" y1="0" x2="${x2}" y2="${y2}">${stops.map((s, k) => `<stop offset="${(k / (stops.length - 1)).toFixed(3)}" stop-color="${s}"/>`).join('')}</linearGradient>`;
+      return `url(#${id})`;
+    },
+    rad(color, op){
+      const id = `${uid}g${this.i++}`;
+      this.d += `<radialGradient id="${id}"><stop offset="0" stop-color="${color}" stop-opacity="${op}"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></radialGradient>`;
+      return `url(#${id})`;
+    }
+  };
+}
+function smoothClosed(pts){
+  const n = pts.length, f = v => v.toFixed(2);
+  let d = `M${f(pts[0][0])} ${f(pts[0][1])}`;
+  for (let i = 0; i < n; i++){
+    const p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n], p3 = pts[(i + 2) % n];
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += ` C${f(c1[0])} ${f(c1[1])} ${f(c2[0])} ${f(c2[1])} ${f(p2[0])} ${f(p2[1])}`;
+  }
+  return d + ' Z';
+}
+
+// mulher em p\u00e9, vista frontal; medidas em cm para 1,65 m, escaladas pela altura informada
+const WOMAN = {
+  torso: [[3.3,139],[8,137.6],[13.6,136.2],[17,133.6],[16.4,128],[15.3,122],[14.4,115],[12.4,105.5],[13.6,99],[16.6,91],[18.6,80],[20.6,68],[22.4,57.5]],
+  arm: [[17.4,133.4],[19.4,125],[20.1,114],[20.6,103],[21.1,93],[21.2,85],[21.7,80.5],[21.2,75.2],[19.8,73.6],[18.7,76.5],[18.7,84.5],[18.0,93],[17.3,103],[16.6,113],[15.6,123]],
+  leg: [[1.6,58],[9.4,58],[9.0,49],[7.7,39],[7.5,31],[6.5,17],[5.7,9.5],[3.4,9.5],[3.0,17],[2.5,30],[2.2,40],[1.8,50]],
+  shoe: [[2.9,10],[6.1,10],[7.1,5],[8.4,1.2],[2.3,0.6],[2.5,5]],
+  hair: [[0,166.4],[6.6,165.2],[10.1,160.6],[11.1,152],[10.8,144.5],[11.5,138.5],[12.8,131.6],[9.8,130.9],[7.4,134.5],[6.2,140]],
+  fringe: [[-8.1,154],[-7.4,160.4],[-3.4,165],[0,166.4],[4.4,165.2],[8.1,160.2],[8.3,153.6],[5.6,158.6],[1.2,160.8],[-4.2,158.8]]
+};
+function personSVG(px, Y, wallLight, hcm){
+  const s = hcm / 165;
+  const P = (x, h) => [px + x * s, Y(h * s)];
+  const mirrorLoop = pts => [...pts.map(p => P(p[0], p[1])), ...pts.slice().reverse().map(p => P(-p[0], p[1]))];
+  const body = wallLight ? '#5E666A' : '#24292B';
+  const hair = shade(body, -0.35);
+  let o = `<g opacity="0.85">`;
+  o += `<path d="${smoothClosed(mirrorLoop(WOMAN.hair))}" fill="${hair}"/>`;
+  [1, -1].forEach(sg => {
+    o += `<path d="${smoothClosed(WOMAN.arm.map(p => P(sg * p[0], p[1])))}" fill="${body}"/>`;
+    o += `<path d="${smoothClosed(WOMAN.leg.map(p => P(sg * p[0], p[1])))}" fill="${body}"/>`;
+    o += `<path d="${smoothClosed(WOMAN.shoe.map(p => P(sg * p[0], p[1])))}" fill="${hair}"/>`;
+  });
+  o += `<path d="${smoothClosed(mirrorLoop(WOMAN.torso))}" fill="${body}"/>`;
+  o += `<path d="M${px - 3.4 * s} ${Y(146 * s)} L${px + 3.4 * s} ${Y(146 * s)} L${px + 4.2 * s} ${Y(136.5 * s)} L${px - 4.2 * s} ${Y(136.5 * s)} Z" fill="${body}"/>`;
+  o += `<ellipse cx="${px}" cy="${Y(153.5 * s)}" rx="${7.7 * s}" ry="${10.4 * s}" fill="${body}"/>`;
+  o += `<path d="${smoothClosed(WOMAN.fringe.map(p => P(p[0], p[1])))}" fill="${hair}"/>`;
+  o += `</g>`;
+  o += `<text x="${px}" y="${Y(hcm + 4)}" text-anchor="middle" font-size="${4.2}" fill="${body}">${(hcm / 100).toFixed(2).replace('.', ',')} m</text>`;
+  return o;
+}
+
+function furnitureSVG(F, Y, G){
+  const c = F.color, x = F.x, w = F.w, h = F.h;
+  const R = (rx0, b, rw, rh, rr, fill, extra) => `<rect x="${rx0}" y="${Y(b + rh)}" width="${rw}" height="${rh}" rx="${rr || 0}" fill="${fill}" ${extra || ''}/>`;
+  const V = (top, bot) => G.lin([top, bot]);
+  let o = '';
+  const floorShadow = (cx, half) => { [[9, 0.05], [5, 0.07], [2, 0.10]].forEach(([e, op]) => { o += `<ellipse cx="${cx}" cy="${Y(0) + 0.8}" rx="${half + e}" ry="${0.8 + e * 0.28}" fill="#000" fill-opacity="${op}"/>`; }); };
+  const wallHalo = (x0, w0, h0, rr, b0) => { const bb = b0 || 0; [[3, 0.025], [1.6, 0.04]].forEach(([e, op]) => { o += `<rect x="${x0 - e}" y="${Y(h0 + e * 0.6)}" width="${w0 + 2 * e}" height="${h0 - bb + e * 0.6}" rx="${rr + e}" fill="#000" fill-opacity="${op}"/>`; }); };
+  const taperLeg = (lx, top, wTop, wBot, col) => `<polygon points="${lx},${Y(top)} ${lx + wTop},${Y(top)} ${lx + wTop / 2 + wBot / 2},${Y(0)} ${lx + wTop / 2 - wBot / 2},${Y(0)}" fill="${col}"/>`;
+
+  if (F.type === 'sofa'){
+    const legH = 6, seatTop = clamp(h * 0.52, 38, 48), armTop = clamp(h * 0.74, seatTop + 12, h - 8);
+    const armW = clamp(w * 0.085, 14, 24), backBot = seatTop - 10;
+    const nC = w > 190 ? 3 : 2, inner = w - 2 * armW, cw = inner / nC;
+    floorShadow(x + w / 2, w / 2);
+    wallHalo(x + armW - 4, inner + 8, h, 7);
+    // estrutura do encosto
+    o += R(x + armW - 4, backBot, inner + 8, h - backBot, 7, V(shade(c, -0.12), shade(c, -0.24)));
+    // almofadas do encosto
+    for (let i = 0; i < nC; i++){
+      const cx0 = x + armW + i * cw + 0.8, ch = h - 1.5 - (seatTop - 4);
+      o += R(cx0, seatTop - 4, cw - 1.6, ch, 7, V(shade(c, 0.08), shade(c, -0.10)), `stroke="${shade(c, -0.2)}" stroke-width="0.3"`);
+      o += `<path d="M${cx0 + 4} ${Y(h - 4.5)} Q${cx0 + cw / 2} ${Y(h - 3)} ${cx0 + cw - 5.6} ${Y(h - 4.5)}" fill="none" stroke="${shade(c, 0.3)}" stroke-width="0.5" opacity="0.6"/>`;
+    }
+    // almofadas decorativas
+    const pillow = (pcx, size, rot, fill) => {
+      const s2 = size / 2, b = seatTop - 2, cy = Y(b + s2), k = 3.2;
+      const p = [[pcx - s2, cy - s2], [pcx + s2, cy - s2], [pcx + s2, cy + s2], [pcx - s2, cy + s2]];
+      const q = 2.2;
+      o += `<path d="M${p[0][0] + 1.5} ${p[0][1] + 1.5} Q${pcx} ${cy - s2 - q} ${p[1][0] - 1.5} ${p[1][1] + 1.5} Q${pcx + s2 + q} ${cy} ${p[2][0] - 1.5} ${p[2][1] - 1.5} Q${pcx} ${cy + s2 + q} ${p[3][0] + 1.5} ${p[3][1] - 1.5} Q${pcx - s2 - q} ${cy} ${p[0][0] + 1.5} ${p[0][1] + 1.5} Z" fill="${fill}" stroke="#000" stroke-opacity="0.12" stroke-width="0.3" transform="rotate(${rot} ${pcx} ${cy})"/>`;
+      o += `<path d="M${pcx - s2 * 0.5} ${cy - s2 * 0.2} Q${pcx} ${cy + s2 * 0.15} ${pcx + s2 * 0.45} ${cy - s2 * 0.3}" fill="none" stroke="#000" stroke-opacity="0.12" stroke-width="0.4" transform="rotate(${rot} ${pcx} ${cy})"/>`;
+    };
+    const ps = clamp(cw * 0.62, 34, 46);
+    pillow(x + armW + ps * 0.62, ps, -4, V(shade(c, -0.28), shade(c, -0.42)));
+    pillow(x + w - armW - ps * 0.62, ps, 4, V('#EFEAE0', '#D9D2C4'));
+    // base e assento
+    o += R(x + armW - 2, legH, inner + 4, 14, 3, V(shade(c, -0.08), shade(c, -0.2)));
+    for (let i = 0; i < nC; i++){
+      const sx = x + armW + i * cw + 0.5;
+      o += R(sx, legH + 12, cw - 1, seatTop - legH - 12, 5, V(shade(c, 0.12), shade(c, -0.04)), `stroke="${shade(c, -0.18)}" stroke-width="0.3"`);
+      o += R(sx + 2, seatTop - 3.2, cw - 5, 1.6, 0.8, shade(c, 0.28), `opacity="0.55"`);
+    }
+    // bra\u00e7os
+    [x, x + w - armW].forEach((ax, k) => {
+      o += R(ax, legH, armW, armTop - legH, Math.min(armW / 2, 9), G.lin(k ? [shade(c, -0.04), shade(c, -0.14)] : [shade(c, 0.06), shade(c, -0.06)], 'h'));
+      o += R(ax + 2, armTop - 3, armW - 4, 1.4, 0.7, shade(c, 0.25), `opacity="0.5"`);
+      o += R(k ? ax : ax + armW - 1.3, legH + 2, 1.3, armTop - legH - 6, 0.6, '#000', `fill-opacity="0.10"`);
+    });
+    // p\u00e9s
+    [x + 5, x + w - 9].forEach(lx => { o += taperLeg(lx, legH + 0.5, 4, 2.4, '#4E3D2C'); });
+  } else if (F.type === 'cama'){
+    const hbX = x - 4, hbW = w + 8;
+    floorShadow(x + w / 2, w / 2 + 6);
+    wallHalo(hbX, hbW, h, 4);
+    // cabeceira estofada em gomos
+    o += R(hbX, 0, hbW, h, 4, V(shade(c, 0.06), shade(c, -0.12)));
+    const nCh = Math.max(4, Math.round(hbW / 18)), chW = hbW / nCh;
+    const chG = G.lin([shade(c, -0.12), shade(c, 0.1), shade(c, 0.02), shade(c, -0.14)], 'h');
+    for (let i = 0; i < nCh; i++) o += R(hbX + i * chW + 0.4, 28, chW - 0.8, h - 32, 2.5, chG);
+    o += R(hbX, h - 3, hbW, 3, 3, shade(c, 0.18), `opacity="0.5"`);
+    // travesseiros
+    const pill = (pcx, pw, b, ph, fill, st) => {
+      const l = pcx - pw / 2, r = pcx + pw / 2, t = Y(b + ph), bt = Y(b);
+      o += `<path d="M${l + 3} ${bt} Q${l - 2} ${(t + bt) / 2} ${l + 4} ${t + 1.5} Q${pcx} ${t - 2.5} ${r - 4} ${t + 1.5} Q${r + 2} ${(t + bt) / 2} ${r - 3} ${bt} Q${pcx} ${bt + 1.5} ${l + 3} ${bt} Z" fill="${fill}" stroke="${st}" stroke-width="0.35"/>`;
+    };
+    pill(x + w * 0.27, w * 0.46, 50, 44, V(shade(c, -0.08), shade(c, -0.22)), shade(c, -0.3));
+    pill(x + w * 0.73, w * 0.46, 50, 44, V(shade(c, -0.08), shade(c, -0.22)), shade(c, -0.3));
+    pill(x + w * 0.28, w * 0.44, 50, 30, V('#FDFCF9', '#E7E2D9'), '#D6D0C5');
+    pill(x + w * 0.72, w * 0.44, 50, 30, V('#FDFCF9', '#E7E2D9'), '#D6D0C5');
+    pill(x + w * 0.5, w * 0.24, 50, 22, V('#B79E7E', '#957C5D'), '#836B4F');
+    // base
+    o += R(x, 4, w, 26, 1.5, V(shade(c, -0.24), shade(c, -0.36)));
+    [x + 3, x + w - 8].forEach(lx => { o += R(lx, 0, 5, 4.5, 0.6, '#3D3128'); });
+    // edredom com caimento
+    const dt = Y(57), db = Y(13);
+    o += `<path d="M${x - 5} ${dt + 3} Q${x - 5} ${dt} ${x - 1} ${dt} L${x + w + 1} ${dt} Q${x + w + 5} ${dt} ${x + w + 5} ${dt + 3} L${x + w + 6} ${db} Q${x + w * 0.75} ${db + 1.6} ${x + w * 0.5} ${db} Q${x + w * 0.25} ${db - 1.4} ${x - 6} ${db} Z" fill="${V('#F8F6F1', '#E2DDD3')}" stroke="#D2CCC1" stroke-width="0.35"/>`;
+    [0.18, 0.41, 0.63, 0.86].forEach(t => { o += `<path d="M${x + w * t} ${Y(54)} Q${x + w * t + 2} ${Y(36)} ${x + w * t - 1} ${Y(15)}" fill="none" stroke="#CFC8BC" stroke-width="0.35" opacity="0.7"/>`; });
+    // peseira
+    const pt = Y(37);
+    o += `<path d="M${x - 5.5} ${pt} Q${x + w / 2} ${pt - 1.2} ${x + w + 5.5} ${pt} L${x + w + 6.2} ${db + 0.4} Q${x + w * 0.5} ${db + 1.4} ${x - 6.2} ${db + 0.4} Z" fill="${V(shade(c, -0.02), shade(c, -0.18))}"/>`;
+    o += `<path d="M${x - 5.2} ${pt + 1.6} Q${x + w / 2} ${pt + 0.4} ${x + w + 5.2} ${pt + 1.6}" fill="none" stroke="${shade(c, 0.22)}" stroke-width="0.5" opacity="0.6"/>`;
+    if (F.ns){
+      [hbX - 6 - 48, hbX + hbW + 6].forEach(nx => {
+        const lcx = nx + 24;
+        o += `<circle cx="${lcx}" cy="${Y(96)}" r="34" fill="${G.rad('#FFF6DE', 0.55)}"/>`;
+        floorShadow(nx + 24, 24);
+        [nx + 3, nx + 41].forEach(lx => { o += taperLeg(lx, 9, 4, 2.6, '#6E5338'); });
+        o += R(nx, 9, 48, 44, 1.5, V('#A9875F', '#8C6C4B'));
+        o += R(nx - 1, 53, 50, 2.5, 0.8, '#B8966D');
+        o += `<line x1="${nx + 2}" y1="${Y(32)}" x2="${nx + 46}" y2="${Y(32)}" stroke="#6E5338" stroke-width="0.5"/>`;
+        o += `<circle cx="${lcx}" cy="${Y(43)}" r="1.4" fill="#C9B48D"/><circle cx="${lcx}" cy="${Y(21)}" r="1.4" fill="#C9B48D"/>`;
+        // abajur
+        o += `<path d="M${lcx - 6} ${Y(55.5)} Q${lcx - 10} ${Y(64)} ${lcx - 5} ${Y(73)} L${lcx + 5} ${Y(73)} Q${lcx + 10} ${Y(64)} ${lcx + 6} ${Y(55.5)} Z" fill="${V('#E2D9CB', '#BFB3A1')}"/>`;
+        o += R(lcx - 0.8, 73, 1.6, 8, 0, '#9C8F7D');
+        o += `<path d="M${lcx - 16} ${Y(81)} L${lcx + 16} ${Y(81)} L${lcx + 11} ${Y(103)} L${lcx - 11} ${Y(103)} Z" fill="${V('#FBF6EC', '#E6DBC7')}" stroke="#D6CAB4" stroke-width="0.35"/>`;
+      });
+    }
+  } else {
+    // aparador e m\u00f3vel gen\u00e9rico
+    const legH = F.type === 'aparador' ? h * 0.24 : 4, top = 3.5;
+    floorShadow(x + w / 2, w / 2);
+    wallHalo(x, w, h, 1.5, legH);
+    [x + 5, x + w - 9].forEach(lx => { o += taperLeg(lx, legH + 0.5, 4, 2.4, shade(c, -0.4)); });
+    o += R(x, legH, w, h - legH - top, 1.5, V(shade(c, 0.04), shade(c, -0.14)));
+    const nD = w > 150 ? 3 : 2, dw = w / nD;
+    for (let i = 0; i < nD; i++){
+      const dx = x + i * dw;
+      o += R(dx + 1, legH + 1.5, dw - 2, h - legH - top - 3, 1, V(shade(c, 0.08), shade(c, -0.08)), `stroke="${shade(c, -0.3)}" stroke-width="0.35"`);
+      for (let g = 1; g < 6; g++){
+        const gx = dx + 1 + (dw - 2) * (g / 6) + Math.sin(i * 3 + g) * 1.5;
+        o += `<line x1="${gx}" y1="${Y(h - top - 2)}" x2="${gx + Math.cos(g) * 1.2}" y2="${Y(legH + 2)}" stroke="${shade(c, -0.22)}" stroke-width="0.25" opacity="0.35"/>`;
+      }
+      const hx = nD === 2 ? (i === 0 ? dx + dw - 5 : dx + 4) : dx + dw / 2 - 0.6;
+      o += nD === 2 ? R(hx, legH + (h - legH) * 0.45, 1.2, 12, 0.6, '#C9B48D') : R(dx + dw / 2 - 6, legH + (h - legH - top) * 0.78, 12, 1.2, 0.6, '#C9B48D');
+    }
+    o += R(x - 2, h - top, w + 4, top, 0.8, V(shade(c, 0.12), shade(c, -0.12)));
+    o += `<line x1="${x - 1.5}" y1="${Y(h) + 0.5}" x2="${x + w + 1.5}" y2="${Y(h) + 0.5}" stroke="${shade(c, 0.35)}" stroke-width="0.4" opacity="0.7"/>`;
+    if (F.type === 'aparador'){
+      // vaso com galhos
+      const vx = x + w * 0.8;
+      o += `<path d="M${vx - 5} ${Y(h)} Q${vx - 11} ${Y(h + 12)} ${vx - 3} ${Y(h + 25)} L${vx + 3} ${Y(h + 25)} Q${vx + 11} ${Y(h + 12)} ${vx + 5} ${Y(h)} Z" fill="${G.lin(['#ECE6DA', '#C9C0B0'], 'h')}"/>`;
+      const br = [[[-1, 25], [-6, 36], [-11, 43]], [[0, 25], [3, 38], [8, 45]], [[0, 25], [-1, 37], [-2, 47]]];
+      br.forEach(b => {
+        o += `<path d="M${vx + b[0][0]} ${Y(h + b[0][1])} Q${vx + b[1][0]} ${Y(h + b[1][1])} ${vx + b[2][0]} ${Y(h + b[2][1])}" fill="none" stroke="#6F6758" stroke-width="0.45"/>`;
+        [0.55, 0.8, 1].forEach(t => {
+          const lx = vx + b[0][0] + (b[2][0] - b[0][0]) * t, ly = h + b[0][1] + (b[2][1] - b[0][1]) * t;
+          o += `<ellipse cx="${lx + 1.2}" cy="${Y(ly)}" rx="1.6" ry="0.8" fill="#7E8A6C" transform="rotate(-30 ${lx + 1.2} ${Y(ly)})"/>`;
+        });
+      });
+      // livros e bowl
+      const bx = x + w * 0.1;
+      o += R(bx, h, 28, 3.6, 0.4, '#4F5F64') + R(bx + 1.5, h + 3.6, 25, 3.2, 0.4, '#D2C3A5') + R(bx + 0.5, h + 6.8, 26.5, 2.8, 0.4, '#2F3538');
+      o += `<path d="M${bx + 8} ${Y(h + 9.6)} Q${bx + 14} ${Y(h + 17)} ${bx + 20} ${Y(h + 9.6)} Z" fill="${V('#B78B5A', '#8E6A43')}"/>`;
+    }
+  }
+  return o;
+}
+
+function placeImage(im, key, ax, ay, aw, ah, pos){
+  const p0 = pos[key] || {}, z = Math.max(1, p0.z || 1);
+  const fx = p0.fx === undefined ? 0.5 : p0.fx, fy = p0.fy === undefined ? 0.5 : p0.fy;
+  const sc = Math.max(aw / im.w, ah / im.h) * z, dw = im.w * sc, dh = im.h * sc;
+  const ox = dw - aw, oy = dh - ah;
+  return `<image data-k="${key}" data-ax="${ax}" data-ay="${ay}" data-ox="${ox}" data-oy="${oy}" x="${ax - ox * fx}" y="${ay - oy * fy}" width="${dw}" height="${dh}" href="${im.src}" preserveAspectRatio="none"/>`;
+}
+function frameArts(R, opts, Y){
+  const imgs = opts.images || [], pos = opts.imgPos || {};
+  let bbox = null;
+  if (imgs.length && opts.artMode === 'split'){
+    const xs = R.frames.map(f => f.x0 + FRAME_T), xe = R.frames.map(f => f.x0 + f.L - FRAME_T);
+    const ys = R.frames.map(f => Y(f.top) + FRAME_T), ye = R.frames.map(f => Y(f.top) + f.A - FRAME_T);
+    bbox = { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xe) - Math.min(...xs), h: Math.max(...ye) - Math.min(...ys) };
+  }
+  return R.frames.map((f, k) => {
+    const hd = { x: f.x0 + FRAME_T, y: Y(f.top) + FRAME_T, w: f.L - 2 * FRAME_T, h: f.A - 2 * FRAME_T };
+    if (!imgs.length) return { art: (ax, ay, aw, ah) => artExample(k, ax, ay, aw, ah), handle: null };
+    if (bbox) return { art: () => placeImage(imgs[0], 'split', bbox.x, bbox.y, bbox.w, bbox.h, pos), handle: { key: 'split', ...hd } };
+    const im = opts.artMode === 'same' ? imgs[0] : imgs[k % imgs.length];
+    return { art: (ax, ay, aw, ah) => placeImage(im, 'q' + k, ax, ay, aw, ah, pos), handle: { key: 'q' + k, ...hd } };
+  });
+}
+
+function scene(R, col, opts, uidp){
+  const { W, H } = R;
+  const Y = h => H - h;
+  const wall = opts.wallColor || '#EEEBE5';
+  const light = lum(wall) > 0.55;
+  const floorH = 22, base = 8;
+  const fsz = clamp(W * 0.018, 3.2, 7);
+  const padX = 6, padTop = 6, padBot = floorH + (opts.showDims ? fsz * 3.2 : 4);
+  let o = '';
+  o += `<defs><linearGradient id="${uidp}w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${shade(wall, 0.04)}"/><stop offset="1" stop-color="${shade(wall, -0.04)}"/></linearGradient>`;
+  o += `<linearGradient id="${uidp}f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9C7B5B"/><stop offset="1" stop-color="#B8987A"/></linearGradient></defs>`;
+  o += `<rect x="0" y="0" width="${W}" height="${H}" fill="url(#${uidp}w)"/>`;
+  // piso de madeira
+  o += `<rect x="0" y="${H}" width="${W}" height="${floorH}" fill="url(#${uidp}f)"/>`;
+  o += `<clipPath id="${uidp}fc"><rect x="0" y="${H}" width="${W}" height="${floorH}"/></clipPath><g clip-path="url(#${uidp}fc)">`;
+  for (let xx = 0; xx < W + 40; xx += 18) o += `<line x1="${xx}" y1="${H}" x2="${xx - 30}" y2="${H + floorH}" stroke="#8A6B4E" stroke-width="0.25" opacity="0.6"/>`;
+  o += `</g>`;
+  // rodap\u00e9
+  o += `<rect x="0" y="${Y(base)}" width="${W}" height="${base}" fill="${shade(wall, light ? 0.5 : 0.75)}"/>`;
+  o += `<line x1="0" y1="${Y(base)}" x2="${W}" y2="${Y(base)}" stroke="#000" stroke-opacity="0.12" stroke-width="0.3"/>`;
+  const G = makeG(uidp);
+  if (R.fur) o += furnitureSVG(R.fur, Y, G);
+
+  // arte
+  const arts = frameArts(R, opts, Y);
+  const handles = [];
+  R.frames.forEach((f, k) => {
+    if (arts[k].handle) handles.push(arts[k].handle);
+    o += frameSVG(f, col, Y, `${uidp}c${k}`, arts[k].art);
+  });
+  if (opts.interactive) handles.forEach(hd => {
+    o += `<rect data-drag="${hd.key}" x="${hd.x}" y="${hd.y}" width="${hd.w}" height="${hd.h}" fill="#FFFFFF" fill-opacity="0" pointer-events="all" style="cursor:move;touch-action:none"/>`;
+  });
+
+  if (R.person) o += personSVG(R.person.x, Y, light, R.person.h);
+  o += `<defs>${G.d}</defs>`;
+
+  if (opts.showDims){
+    const dimc = light ? '#4A5257' : '#F2F2F0';
+    R.frames.forEach(f => {
+      const cx = f.x0 + f.L / 2, yb = Y(f.top) + f.A + fsz * 1.25;
+      o += `<text x="${cx}" y="${yb}" text-anchor="middle" font-size="${fsz * 0.8}" fill="${dimc}">${fmt(f.L)} \u00d7 ${fmt(f.A)} cm</text>`;
+    });
+    const yd = H + floorH + fsz * 1.4;
+    o += `<line x1="0" y1="${yd}" x2="${W}" y2="${yd}" stroke="#8A9296" stroke-width="${fsz * 0.06}"/>`;
+    o += `<line x1="0" y1="${yd - fsz*0.5}" x2="0" y2="${yd + fsz*0.5}" stroke="#8A9296" stroke-width="${fsz * 0.06}"/><line x1="${W}" y1="${yd - fsz*0.5}" x2="${W}" y2="${yd + fsz*0.5}" stroke="#8A9296" stroke-width="${fsz * 0.06}"/>`;
+    o += `<text x="${W / 2}" y="${yd + fsz * 1.35}" text-anchor="middle" font-size="${fsz * 0.85}" fill="#5B656A">Parede ${fmt(W)} \u00d7 ${fmt(H)} cm</text>`;
+  }
+  return { o, vbX: -padX, vbY: -padTop, vbW: W + 2 * padX, vbH: H + padTop + padBot };
+}
+
+function wrapText(t, size, maxW){
+  const words = String(t).split(' '), lines = [];
+  const maxC = Math.max(20, Math.floor(maxW / (size * 0.52)));
+  let cur = '';
+  words.forEach(w => { if ((cur + ' ' + w).trim().length > maxC && cur){ lines.push(cur); cur = w; } else cur = (cur ? cur + ' ' : '') + w; });
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+function composite(R, meta, cols, opts){
+  const P = 80, INK = '#22262A', GREY = '#6B767A';
+  const scenes = opts.photos
+    ? opts.photos.map(ph => ({ o: `<image x="0" y="0" width="${ph.w}" height="${ph.h}" href="${ph.src}"/>`, vbX: 0, vbY: 0, vbW: ph.w, vbH: ph.h }))
+    : cols.map((c, i) => scene(R, c, opts, 'p' + i));
+  const S = scenes[0];
+  const aspect = S.vbW / S.vbH;
+  const nC = cols.length;
+  const sideBySide = nC > 1 && aspect < 1.25;
+  let EXW = 2400;
+  const capH = nC > 1 ? 64 : 0;
+  const gapP = 40;
+  let pw, ph;
+  if (sideBySide){
+    pw = (EXW - 2 * P - (nC - 1) * gapP) / nC; ph = pw / aspect;
+  } else {
+    pw = EXW - 2 * P; ph = pw / aspect;
+    const maxH = nC > 1 ? 900 : 1650;
+    if (ph > maxH){ ph = maxH; pw = ph * aspect; EXW = Math.max(1700, Math.round(pw + 2 * P)); }
+  }
+  const availW = EXW - 2 * P;
+  let o = '', y = P;
+  o += `<text x="${P}" y="${y + 56}" font-size="60" font-weight="700" fill="${INK}">${esc(meta.title)}</text>`;
+  let headH = 0;
+  if (meta.logo && meta.logo.src){
+    const lh = 115, lw = Math.min(440, lh * (meta.logo.w / meta.logo.h)), lhh = lw / (meta.logo.w / meta.logo.h);
+    o += `<image x="${EXW - P - lw}" y="${y - 10}" width="${lw}" height="${lhh}" href="${meta.logo.src}" preserveAspectRatio="xMaxYMid meet"/>`;
+    o += `<text x="${EXW - P}" y="${y - 10 + lhh + 38}" text-anchor="end" font-size="28" fill="${GREY}">${esc(meta.date)}</text>`;
+    headH = lhh + 46;
+  } else o += `<text x="${EXW - P}" y="${y + 56}" text-anchor="end" font-size="30" fill="${GREY}">${esc(meta.date)}</text>`;
+  const info = [];
+  if (meta.cliente) info.push(meta.cliente);
+  if (meta.ambiente) info.push(meta.ambiente);
+  if (info.length) o += `<text x="${P}" y="${y + 112}" font-size="34" fill="${INK}">${esc(info.join('  \u00b7  '))}</text>`;
+  y += Math.max(info.length ? 142 : 92, headH);
+  o += `<line x1="${P}" y1="${y}" x2="${EXW - P}" y2="${y}" stroke="#DADDD9" stroke-width="3"/>`;
+  y += 54;
+  const sizes = [...new Set(R.frames.map(f => `${fmt(f.L)} \u00d7 ${fmt(f.A)}`))];
+  const q = R.n === 1 ? `1 quadro ${sizes[0]} cm` : (sizes.length === 1 ? `${R.n} quadros ${sizes[0]} cm` : `${R.n} quadros (${sizes.join(', ')} cm)`);
+  const molduraTxt = nC === 1 ? `moldura ${cols[0].name}` : `comparando ${nC} cores de moldura`;
+  const line1 = `${q}  \u00b7  ${molduraTxt}${R.fur ? `  \u00b7  sobre ${R.fur.name.toLowerCase()} de ${fmt(R.fur.w)} cm` : ''}`;
+  wrapText(line1, 32, availW).forEach(l => { o += `<text x="${P}" y="${y}" font-size="32" fill="${INK}">${esc(l)}</text>`; y += 42; });
+  y += 14;
+
+  scenes.forEach((sc, i) => {
+    const px = sideBySide ? P + i * (pw + gapP) : (EXW - pw) / 2;
+    const py = sideBySide ? y : y + i * (ph + capH + gapP);
+    if (nC > 1){
+      const c = cols[i];
+      o += `<rect x="${px}" y="${py + 8}" width="40" height="40" rx="4" fill="${c.hex}" stroke="#00000033" stroke-width="2"/>`;
+      o += `<text x="${px + 56}" y="${py + 40}" font-size="34" font-weight="700" fill="${INK}">${esc(c.name)}</text>`;
+    }
+    o += `<svg x="${px}" y="${py + capH}" width="${pw}" height="${ph}" viewBox="${sc.vbX} ${sc.vbY} ${sc.vbW} ${sc.vbH}">${sc.o}</svg>`;
+  });
+  y += sideBySide ? ph + capH + 44 : nC * (ph + capH) + (nC - 1) * gapP + 44;
+
+  const foot = (opts.photos ? `Simula\u00e7\u00e3o sobre a foto do ambiente, com escala calibrada por uma refer\u00eancia de ${opts.photoRef} cm. Pode haver pequenas diferen\u00e7as de escala por distor\u00e7\u00e3o da lente. ` : 'Simula\u00e7\u00e3o ilustrativa em escala. ') + `Moldura caixa de ${FRAME_T} cm; \u00e1rea vis\u00edvel da arte ${sizes.length === 1 ? R.frames.map(f => `${fmt(f.L - 2*FRAME_T)} \u00d7 ${fmt(f.A - 2*FRAME_T)}`)[0] + ' cm' : 'igual ao tamanho do quadro menos ' + (2*FRAME_T) + ' cm em cada lado'}. As cores podem variar conforme a tela.`;
+  wrapText(foot, 26, availW).forEach(l => { o += `<text x="${P}" y="${y}" font-size="26" fill="${GREY}">${esc(l)}</text>`; y += 36; });
+  y += P - 36;
+  const Ht = Math.ceil(y);
+  return { svg: `<svg xmlns="http://www.w3.org/2000/svg" width="${EXW}" height="${Ht}" viewBox="0 0 ${EXW} ${Ht}" font-family="Arial, Helvetica, sans-serif"><rect x="0" y="0" width="${EXW}" height="${Ht}" fill="#FFFFFF"/>${o}</svg>`, w: EXW, h: Ht };
+}
+// @@CORE END
+
+const $ = id => document.getElementById(id);
+const KEY = 'simulador-quadros-v1', KEYC = 'simulador-quadros-cores-v2';
+const DEFAULT_LOGO = { src: 'data:image/png;base64,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', w: 633, h: 261 };
+const WALLS = [
+  ['Branco gelo', '#F1EFEA'], ['Off-white', '#E8E2D6'], ['Areia', '#DDCDB6'], ['Cinza claro', '#D7D9D6'],
+  ['Verde s\u00e1lvia', '#C3CCBA'], ['Azul acinzentado', '#BFCAD1'], ['Terracota', '#C99A7E'], ['Grafite', '#55595C']
+];
+const EXAMPLE = { cliente:'', ambiente:'Sala', wallW:'400', wallH:'270', wallColor:'#E8E2D6', qty:'2', gap:'8', size:'73x103', diff:false, sizes:[],
+  color:'c2', compare:false, compareIds:['c2','c6','c1'], artMode:'each', furn:'sofa', furnW:'220', furnH:'85', furnGap:'30', furnColor:FURN.sofa.color,
+  nightstands:true, person:true, showDims:true, furnShift:'0', setShift:'0', center:'160', personSide:'esq', personH:'165', mode:'il', refW:'', refH:'', refBase:'0', photoLight:'100', photoWarm:'0', photoDX:0, photoDY:0 };
+let state = JSON.parse(JSON.stringify(EXAMPLE));
+let colors = JSON.parse(JSON.stringify(DEFAULT_COLORS));
+let images = [];
+let imgPos = {};
+let current = null;
+const FIELDS = ['cliente','ambiente','wallW','wallH','qty','gap','size','artMode','furn','furnW','furnH','furnGap','furnColor','furnShift','setShift','center','personSide','personH','refW','refH','refBase','photoLight','photoWarm'];
+const CHECKS = ['diff','compare','nightstands','person','showDims'];
+
+function load(){
+  try { const r = localStorage.getItem(KEY); if (r) state = { ...state, ...JSON.parse(r) }; } catch(e){}
+  try { const r = localStorage.getItem(KEYC); if (r){ const c = JSON.parse(r); if (Array.isArray(c) && c.length === 8) colors = c; } } catch(e){}
+}
+function persist(){ try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e){} }
+function persistColors(){ try { localStorage.setItem(KEYC, JSON.stringify(colors)); } catch(e){} }
+
+function fillForm(){
+  FIELDS.forEach(k => { $(k).value = state[k] ?? ''; });
+  CHECKS.forEach(k => { $(k).checked = !!state[k]; });
+  buildSizes(); updateUI(); buildSwatches(); buildWalls(); buildColorEditor();
+}
+function readForm(){
+  FIELDS.forEach(k => { state[k] = $(k).value; });
+  CHECKS.forEach(k => { state[k] = $(k).checked; });
+}
+function updateUI(){
+  const t = state.furn;
+  $('furnBox').hidden = !FURN[t];
+  if (FURN[t]){ $('furnHLabel').textContent = FURN[t].hLabel; $('furnHHint').textContent = FURN[t].hHint; }
+  $('nsLabel').hidden = t !== 'cama';
+  $('personHLabel').hidden = !state.person;
+  const foto = state.mode === 'foto';
+  $('fsFoto').hidden = !foto; $('fsParede').hidden = foto; $('fsEscala').hidden = foto;
+  $('furnColorLabel').hidden = foto;
+  if (foto) $('nsLabel').hidden = true;
+  $('modeIl').setAttribute('aria-pressed', String(!foto)); $('modeFoto').setAttribute('aria-pressed', String(foto));
+  $('compareHint').hidden = !state.compare;
+  $('artModeLabel').hidden = !images.length;
+  $('artClear').hidden = !images.length;
+  $('artList').innerHTML = images.map(im => `<img src="${im.src}" alt="">`).join('');
+}
+function buildSizes(){
+  const n = Math.round(num(state.qty, 0)), box = $('sizesList');
+  const on = state.diff && n >= 1 && n <= 10;
+  box.hidden = !on; $('sizeLabel').hidden = !!state.diff;
+  $('gapLabel').style.visibility = n > 1 ? 'visible' : 'hidden';
+  if (!on){ box.innerHTML = ''; return; }
+  if (box.children.length !== n){
+    box.innerHTML = '';
+    for (let i = 0; i < n; i++){
+      if (state.sizes[i] === undefined) state.sizes[i] = state.size || '';
+      const lab = document.createElement('label'); lab.textContent = `Quadro ${i + 1} (LxA)`;
+      const inp = document.createElement('input'); inp.type = 'text'; inp.id = 'size_' + i; inp.value = state.sizes[i]; inp.placeholder = '73x103';
+      inp.addEventListener('input', () => { state.sizes[i] = inp.value; render(); persist(); });
+      lab.appendChild(inp); box.appendChild(lab);
+    }
+  }
+}
+function selectedColors(){
+  if (state.compare){
+    const ids = (state.compareIds || []).filter(id => colors.some(c => c.id === id));
+    const list = ids.map(id => colors.find(c => c.id === id));
+    return list.length ? list : [colors[0]];
+  }
+  return [colors.find(c => c.id === state.color) || colors[0]];
+}
+function buildSwatches(){
+  const sel = state.compare ? (state.compareIds || []) : [state.color];
+  $('swatches').innerHTML = colors.map(c => `<button type="button" class="sw" data-id="${c.id}" aria-pressed="${sel.includes(c.id)}"><i style="background:${c.hex}"></i><span>${esc(c.name)}</span></button>`).join('');
+}
+$('swatches').addEventListener('click', e => {
+  const b = e.target.closest('.sw'); if (!b) return;
+  const id = b.dataset.id;
+  if (state.compare){
+    let ids = (state.compareIds || []).slice();
+    if (ids.includes(id)) ids = ids.filter(x => x !== id);
+    else { if (ids.length >= 3) ids.shift(); ids.push(id); }
+    state.compareIds = ids;
+  } else state.color = id;
+  buildSwatches(); render(); persist();
+});
+function buildWalls(){
+  const cur = (state.wallColor || '').toLowerCase();
+  $('wallPresets').innerHTML = WALLS.map(([n, h]) => `<button type="button" class="wp" title="${n}" aria-label="Parede ${n}" data-c="${h}" style="background:${h}" aria-pressed="${cur === h.toLowerCase()}"></button>`).join('')
+    + `<input type="color" id="wallColor" value="${state.wallColor || '#E8E2D6'}" title="Outra cor de parede" aria-label="Outra cor de parede">`;
+}
+$('wallPresets').addEventListener('click', e => {
+  const b = e.target.closest('.wp'); if (!b) return;
+  state.wallColor = b.dataset.c; buildWalls(); render(); persist();
+});
+$('wallPresets').addEventListener('input', e => {
+  if (e.target.id !== 'wallColor') return;
+  state.wallColor = e.target.value; render(); persist();
+  [...document.querySelectorAll('.wp')].forEach(b => b.setAttribute('aria-pressed', 'false'));
+});
+function buildColorEditor(){
+  $('colorEditor').innerHTML = colors.map((c, i) => `<div class="colorEdit">
+    <input type="color" data-i="${i}" data-k="hex" value="${c.hex}" aria-label="Cor ${i + 1}">
+    <input type="text" data-i="${i}" data-k="name" value="${esc(c.name)}" aria-label="Nome da cor ${i + 1}">
+    <select data-i="${i}" data-k="finish" aria-label="Acabamento da cor ${i + 1}">
+      <option value="fosco"${c.finish === 'fosco' ? ' selected' : ''}>Lisa</option>
+      <option value="madeira"${c.finish === 'madeira' ? ' selected' : ''}>Madeira</option>
+      <option value="metal"${c.finish === 'metal' ? ' selected' : ''}>Met\u00e1lica</option>
+    </select></div>`).join('');
+}
+$('colorEditor').addEventListener('input', e => {
+  const i = +e.target.dataset.i, k = e.target.dataset.k; if (!colors[i] || !k) return;
+  colors[i][k] = e.target.value; persistColors(); buildSwatches(); render();
+});
+$('colorsReset').addEventListener('click', () => { colors = JSON.parse(JSON.stringify(DEFAULT_COLORS)); persistColors(); buildColorEditor(); buildSwatches(); render(); });
+
+function opts(interactive){ return { wallColor: state.wallColor, showDims: !!state.showDims, images, artMode: state.artMode, imgPos, interactive: !!interactive }; }
+function meta(){
+  return { title: 'Simula\u00e7\u00e3o de quadros', cliente: (state.cliente || '').trim(), ambiente: (state.ambiente || '').trim(), date: new Date().toLocaleDateString('pt-BR'), logo: DEFAULT_LOGO };
+}
+
+function chipsHTML(R){
+  const f0 = R.frames[0];
+  const chips = [`<span class="chip">Arte vis\u00edvel <b>${fmt(f0.L - 2*FRAME_T)} \u00d7 ${fmt(f0.A - 2*FRAME_T)} cm</b>${R.frames.some(f => f.L !== f0.L || f.A !== f0.A) ? ' (Q1)' : ''}</span>`,
+    `<span class="chip">Conjunto <b>${fmt(R.totalW)} cm</b> de largura</span>`];
+  if (R.ratio !== null){
+    const pct = Math.round(R.ratio * 100);
+    chips.push(`<span class="chip${pct < 50 || pct > 80 ? ' alert' : ''}">Ocupa <b>${pct}%</b> ${R.fur.art === 'a' ? 'da' : 'do'} ${R.fur.name.toLowerCase()} <span style="opacity:.75">(refer\u00eancia usual: 50% a 80%)</span></span>`);
+  }
+  if (state.mode !== 'foto'){
+    const cMin = Math.min(...R.frames.map(f => f.center));
+    chips.push(`<span class="chip">Centro a <b>${fmt(cMin)} cm</b> do piso</span>`);
+  } else if (photo.H){
+    const base = num(state.refBase, 0), dy = Number(state.photoDY) || 0;
+    const cMin = Math.min(...R.frames.map(f => f.center + dy));
+    chips.push(`<span class="chip">Centro a <b>${fmt(cMin)} cm</b> do piso</span>`);
+  }
+  return chips.join('');
+}
+function render(){
+  if (state.mode === 'foto'){ renderFotoMode(); buildFraming(current); return; }
+  const R = compute(state);
+  current = R;
+  const msgs = $('msgs');
+  msgs.innerHTML = '';
+  if (!R.ok){
+    msgs.innerHTML = `<div class="msg err"><ul>${R.errors.map(e => `<li>${esc(e)}</li>`).join('')}</ul></div>`;
+    $('sheet').innerHTML = '<p style="color:#5E676B;padding:24px;margin:0">Complete os dados para gerar a simula\u00e7\u00e3o.</p>';
+    $('chips').innerHTML = '';
+    $('btnPng').disabled = $('btnPdf').disabled = true;
+    return;
+  }
+  if (R.warnings.length) msgs.innerHTML = `<div class="msg warn"><ul>${R.warnings.map(e => `<li>${esc(e)}</li>`).join('')}</ul></div>`;
+  $('btnPng').disabled = $('btnPdf').disabled = false;
+  $('chips').innerHTML = chipsHTML(R);
+  $('sheet').innerHTML = composite(R, meta(), selectedColors(), opts(true)).svg;
+  buildFraming(R);
+}
+
+function fileBase(){
+  const d = new Date();
+  const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const slug = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
+  return ['simulacao', slug(state.cliente), slug(state.ambiente), ds].filter(Boolean).join('_');
+}
+async function rasterize(scale){
+  let o = opts();
+  if (state.mode === 'foto'){
+    o = { ...o, photos: await photoExports(), photoRef: `${fmt(num(state.refW))} \u00d7 ${fmt(num(state.refH))}` };
+  }
+  const C = composite(current, meta(), selectedColors(), o);
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(C.w * scale); cv.height = Math.round(C.h * scale);
+      const ctx = cv.getContext('2d');
+      ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, cv.width, cv.height);
+      ctx.drawImage(img, 0, 0, cv.width, cv.height);
+      resolve(cv);
+    };
+    img.onerror = () => reject(new Error('Falha ao gerar a imagem.'));
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(C.svg);
+  });
+}
+let downloadsNS;
+const dlReady = (async () => { try { downloadsNS = window.claude ? await window.claude.use('downloads') : null; } catch(e){ downloadsNS = null; } })();
+async function deliver(blob, filename){
+  await dlReady;
+  if (downloadsNS){
+    try { await downloadsNS.save({ filename, data: blob }); setStatus(`${filename} salvo.`); }
+    catch(e){
+      if (e && e.code === 'declined') setStatus('Download cancelado.');
+      else if (e && e.code === 'rate_limited') setStatus('J\u00e1 existe um download aguardando confirma\u00e7\u00e3o.');
+      else setStatus('N\u00e3o foi poss\u00edvel salvar o arquivo nesta visualiza\u00e7\u00e3o.');
+    }
+    return;
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  setStatus(`${filename} gerado.`);
+}
+function setStatus(s){ $('status').textContent = s; }
+
+$('btnPng').addEventListener('click', async () => {
+  if (!current || !current.ok) return;
+  setStatus('Gerando imagem\u2026');
+  try { const cv = await rasterize(1.5); const blob = await new Promise(r => cv.toBlob(r, 'image/png')); await deliver(blob, fileBase() + '.png'); }
+  catch(e){ setStatus(e.message || 'Falha ao gerar a imagem.'); }
+});
+$('btnPdf').addEventListener('click', async () => {
+  if (!current || !current.ok) return;
+  if (!window.jspdf){ setStatus('A biblioteca de PDF n\u00e3o carregou. Verifique a conex\u00e3o e recarregue a p\u00e1gina.'); return; }
+  setStatus('Gerando PDF\u2026');
+  try {
+    const cv = await rasterize(1.25);
+    const portrait = cv.height > cv.width;
+    const doc = new window.jspdf.jsPDF({ orientation: portrait ? 'portrait' : 'landscape', unit: 'mm', format: 'a4', compress: true });
+    const pw = portrait ? 210 : 297, ph = portrait ? 297 : 210, m = 8;
+    const ratio = cv.width / cv.height;
+    let w = pw - 2*m, h = w / ratio;
+    if (h > ph - 2*m){ h = ph - 2*m; w = h * ratio; }
+    doc.addImage(cv.toDataURL('image/jpeg', 0.92), 'JPEG', (pw - w) / 2, (ph - h) / 2, w, h, undefined, 'FAST');
+    doc.setProperties({ title: 'Simula\u00e7\u00e3o de quadros' + (state.cliente ? ' - ' + state.cliente : '') });
+    await deliver(doc.output('blob'), fileBase() + '.pdf');
+  } catch(e){ setStatus(e.message || 'Falha ao gerar o PDF.'); }
+});
+
+$('artFile').addEventListener('change', async e => {
+  const files = [...(e.target.files || [])].slice(0, 10);
+  e.target.value = '';
+  if (!files.length) return;
+  setStatus('Carregando imagens\u2026');
+  const out = [];
+  for (const file of files){
+    try {
+      const src = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(file); });
+      const img = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; });
+      const sc = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+      const cv = document.createElement('canvas');
+      cv.width = Math.max(1, Math.round(img.naturalWidth * sc)); cv.height = Math.max(1, Math.round(img.naturalHeight * sc));
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      out.push({ src: cv.toDataURL('image/jpeg', 0.9), w: cv.width, h: cv.height });
+    } catch(err){ /* ignora arquivo ileg\u00edvel */ }
+  }
+  images = out; imgPos = {}; imagesVersion++;
+  if (images.length === 1 && Math.round(num(state.qty, 1)) > 1 && state.artMode === 'each'){ state.artMode = 'split'; $('artMode').value = 'split'; }
+  setStatus(images.length ? `${images.length} imagem(ns) carregada(s).` : 'N\u00e3o foi poss\u00edvel ler as imagens. Use JPG ou PNG.');
+  updateUI(); render(); persist();
+});
+// captura da cor da parede a partir de uma foto
+const pick = { img: null, base: null, pt: null };
+function pickDraw(){
+  const cv = $('pickCanvas'), ctx = cv.getContext('2d');
+  if (!pick.img) return;
+  ctx.drawImage(pick.img, 0, 0, cv.width, cv.height);
+  if (pick.pt){
+    const r = pick.pt.r;
+    ctx.lineWidth = Math.max(2, cv.width / 300);
+    ctx.strokeStyle = '#000'; ctx.beginPath(); ctx.arc(pick.pt.x, pick.pt.y, r + ctx.lineWidth, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = '#FFF'; ctx.beginPath(); ctx.arc(pick.pt.x, pick.pt.y, r, 0, Math.PI * 2); ctx.stroke();
+  }
+}
+function pickColor(){
+  if (!pick.base) return null;
+  return shade(pick.base, num($('pickAdj').value, 0) / 100);
+}
+function pickShow(){
+  const c = pickColor();
+  $('pickSw').style.background = c || 'transparent';
+  $('pickHex').textContent = c ? c.toUpperCase() : 'Nenhum ponto escolhido';
+  $('pickUse').disabled = !c;
+}
+$('pickFile').addEventListener('change', e => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  const fr = new FileReader();
+  fr.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const sc = Math.min(1, 1200 / Math.max(img.naturalWidth, img.naturalHeight));
+      const cv = $('pickCanvas');
+      cv.width = Math.max(1, Math.round(img.naturalWidth * sc)); cv.height = Math.max(1, Math.round(img.naturalHeight * sc));
+      pick.img = img; pick.base = null; pick.pt = null; pick.at = null; $('pickAdj').value = 0;
+      pickDraw(); pickShow(); $('pickBox').hidden = false;
+    };
+    img.onerror = () => setStatus('N\u00e3o foi poss\u00edvel abrir essa foto. Use JPG ou PNG.');
+    img.src = fr.result;
+  };
+  fr.readAsDataURL(file);
+});
+function pickSample(){
+  if (!pick.img || !pick.at) return;
+  const cv = $('pickCanvas');
+  const { x, y } = pick.at;
+  const r = Math.max(5, Math.round(Math.min(cv.width, cv.height) * num($('pickR').value, 7) / 100));
+  pick.pt = null; pickDraw();
+  const x0 = clamp(x - r, 0, cv.width - 1), y0 = clamp(y - r, 0, cv.height - 1);
+  const w = Math.max(1, Math.min(2 * r, cv.width - x0)), h = Math.max(1, Math.min(2 * r, cv.height - y0));
+  let data;
+  try { data = cv.getContext('2d').getImageData(x0, y0, w, h).data; } catch(err){ setStatus('N\u00e3o foi poss\u00edvel ler as cores dessa foto.'); return; }
+  const px = [];
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++){
+    const dx = x0 + i - x, dy = y0 + j - y;
+    if (dx * dx + dy * dy > r * r) continue;
+    const k = (j * w + i) * 4;
+    px.push([data[k], data[k + 1], data[k + 2], 0.299 * data[k] + 0.587 * data[k + 1] + 0.114 * data[k + 2]]);
+  }
+  if (!px.length) return;
+  // mant\u00e9m s\u00f3 os pixels com brilho pr\u00f3ximo ao predominante (descarta sombras, frestas, reflexos e ru\u00eddo) e tira a m\u00e9dia
+  px.sort((a, b) => a[3] - b[3]);
+  const m = px[px.length >> 1][3], tol = Math.max(10, m * 0.10);
+  const near = px.filter(p => Math.abs(p[3] - m) <= tol);
+  const use = near.length >= px.length * 0.15 ? near : px;
+  const avg = [0, 1, 2].map(c => Math.round(use.reduce((acc, p) => acc + p[c], 0) / use.length));
+  pick.base = '#' + avg.map(v => v.toString(16).padStart(2, '0')).join('');
+  pick.pt = { x, y, r };
+  pickDraw(); pickShow();
+}
+$('pickCanvas').addEventListener('click', e => {
+  if (!pick.img) return;
+  const cv = $('pickCanvas'), rect = cv.getBoundingClientRect();
+  pick.at = { x: Math.round((e.clientX - rect.left) / rect.width * cv.width), y: Math.round((e.clientY - rect.top) / rect.height * cv.height) };
+  pickSample();
+});
+$('pickR').addEventListener('input', () => {
+  const v = num($('pickR').value, 7);
+  $('pickRVal').textContent = v <= 4 ? 'pequena' : v <= 9 ? 'm\u00e9dia' : 'grande';
+  pickSample();
+});
+$('pickAdj').addEventListener('input', pickShow);
+$('pickUse').addEventListener('click', () => {
+  const c = pickColor(); if (!c) return;
+  state.wallColor = c; buildWalls(); render(); persist();
+  $('pickBox').hidden = true; pick.img = null;
+  setStatus(`Cor da parede capturada: ${c.toUpperCase()}.`);
+});
+$('pickCancel').addEventListener('click', () => { $('pickBox').hidden = true; pick.img = null; });
+
+// ================= modo foto do cliente =================
+const photo = { img: null, cv: null, pix: null, w: 0, h: 0, pts: [], H: null, Hinv: null, editing: false, sel: -1, dragPt: -1, dragSet: null, hover: null, quads: [] };
+let photoSeq = 0, imagesVersion = 0;
+const flatCache = new Map();
+const FILTER_OK = (() => { try { const c = document.createElement('canvas').getContext('2d'); c.filter = 'blur(1px)'; return c.filter === 'blur(1px)'; } catch(e){ return false; } })();
+
+function solveHomography(src, dst){
+  const M = [];
+  for (let i = 0; i < 4; i++){
+    const [x, y] = src[i], [X, Y] = dst[i];
+    M.push([x, y, 1, 0, 0, 0, -x * X, -y * X, X]);
+    M.push([0, 0, 0, x, y, 1, -x * Y, -y * Y, Y]);
+  }
+  const n = 8;
+  for (let c = 0; c < n; c++){
+    let p = c;
+    for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+    [M[c], M[p]] = [M[p], M[c]];
+    if (Math.abs(M[c][c]) < 1e-10) return null;
+    for (let r = 0; r < n; r++){
+      if (r === c) continue;
+      const f = M[r][c] / M[c][c];
+      for (let k = c; k <= n; k++) M[r][k] -= f * M[c][k];
+    }
+  }
+  return [...M.map((r, i) => r[n] / r[i]), 1];
+}
+function hApply(h, u, v){ const w = h[6] * u + h[7] * v + h[8]; return [(h[0] * u + h[1] * v + h[2]) / w, (h[3] * u + h[4] * v + h[5]) / w]; }
+function hInverse(h){
+  const [a, b, c, d, e, f, g, k, i] = h;
+  const A = e * i - f * k, B = -(d * i - f * g), C = d * k - e * g;
+  const det = a * A + b * B + c * C;
+  if (Math.abs(det) < 1e-12) return null;
+  const inv = [A, -(b * i - c * k), b * f - c * e, B, a * i - c * g, -(a * f - c * d), C, -(a * k - b * g), a * e - b * d];
+  return inv.map(v => v / det);
+}
+function orderCorners(pts){
+  const s = pts.slice().sort((a, b) => a[1] - b[1]);
+  const top = s.slice(0, 2).sort((a, b) => a[0] - b[0]), bot = s.slice(2).sort((a, b) => a[0] - b[0]);
+  return { TL: top[0], TR: top[1], BL: bot[0], BR: bot[1] };
+}
+function isConvex(q){
+  let sign = 0;
+  for (let i = 0; i < 4; i++){
+    const a = q[i], b = q[(i + 1) % 4], c = q[(i + 2) % 4];
+    const z = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
+    if (z !== 0){ if (sign && Math.sign(z) !== sign) return false; sign = Math.sign(z); }
+  }
+  return true;
+}
+function inPoly(p, q){
+  let inside = false;
+  for (let i = 0, j = q.length - 1; i < q.length; j = i++){
+    if (((q[i][1] > p[1]) !== (q[j][1] > p[1])) && (p[0] < (q[j][0] - q[i][0]) * (p[1] - q[i][1]) / (q[j][1] - q[i][1]) + q[i][0])) inside = !inside;
+  }
+  return inside;
+}
+function calibrate(){
+  photo.H = photo.Hinv = null;
+  if (photo.pts.length < 4) return;
+  const RW = num(state.refW), RH = num(state.refH);
+  if (!(RW > 0 && RH > 0)) return;
+  const c = orderCorners(photo.pts);
+  if (!isConvex([c.TL, c.TR, c.BR, c.BL])) return;
+  photo.H = solveHomography([[0, 0], [RW, 0], [RW, RH], [0, RH]], [c.BL, c.BR, c.TR, c.TL]);
+  photo.Hinv = photo.H && hInverse(photo.H);
+}
+function photoState(){ return { ...state, wallW: '10000', wallH: '2000', person: false, furnShift: '0', setShift: '0', nightstands: false }; }
+function photoFrames(R){
+  const RW = num(state.refW, 0), base = num(state.refBase, 0);
+  const dx = Number(state.photoDX) || 0, dy = Number(state.photoDY) || 0;
+  return R.frames.map(f => ({ f, u0: f.x0 - R.W / 2 + RW / 2 + dx, vTop: f.top - base + dy }));
+}
+
+function loadSvgCanvas(svg, w, h){
+  return new Promise((res, rej) => {
+    const im = new Image();
+    im.onload = () => { const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(im, 0, 0, w, h); res(c); };
+    im.onerror = () => rej(new Error('Falha ao desenhar o quadro.'));
+    im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  });
+}
+function flatFor(R, f, k, col, ppc){
+  const f0 = R.frames[0];
+  const key = JSON.stringify([k, f.L, f.A, f.x0 - f0.x0, f.top - f0.top, R.frames.length, col.hex, col.finish, state.artMode, imagesVersion, imgPos, ppc]);
+  if (flatCache.has(key)) return Promise.resolve(flatCache.get(key));
+  const Y = h => R.H - h;
+  const arts = frameArts(R, { images, artMode: state.artMode, imgPos }, Y);
+  const inner = frameSVG(f, col, Y, 'ff' + k, arts[k].art, true);
+  const wpx = Math.max(8, Math.round(f.L * ppc)), hpx = Math.max(8, Math.round(f.A * ppc));
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${wpx}" height="${hpx}" viewBox="${f.x0} ${Y(f.top)} ${f.L} ${f.A}">${inner}</svg>`;
+  return loadSvgCanvas(svg, wpx, hpx).then(c => { if (flatCache.size > 80) flatCache.clear(); flatCache.set(key, c); return c; });
+}
+function drawTri(ctx, img, s0, s1, s2, d0, d1, d2){
+  const cx = (d0[0] + d1[0] + d2[0]) / 3, cy = (d0[1] + d1[1] + d2[1]) / 3;
+  const inf = p => { const dx = p[0] - cx, dy = p[1] - cy, l = Math.hypot(dx, dy) || 1; return [p[0] + dx / l * 1.1, p[1] + dy / l * 1.1]; };
+  const [x0, y0] = s0, [x1, y1] = s1, [x2, y2] = s2;
+  const den = x0 * (y1 - y2) + x1 * (y2 - y0) + x2 * (y0 - y1);
+  if (!den) return;
+  const a = (d0[0] * (y1 - y2) + d1[0] * (y2 - y0) + d2[0] * (y0 - y1)) / den;
+  const b = (d0[1] * (y1 - y2) + d1[1] * (y2 - y0) + d2[1] * (y0 - y1)) / den;
+  const c = (d0[0] * (x2 - x1) + d1[0] * (x0 - x2) + d2[0] * (x1 - x0)) / den;
+  const d = (d0[1] * (x2 - x1) + d1[1] * (x0 - x2) + d2[1] * (x1 - x0)) / den;
+  const e = (d0[0] * (x1 * y2 - x2 * y1) + d1[0] * (x2 * y0 - x0 * y2) + d2[0] * (x0 * y1 - x1 * y0)) / den;
+  const f = (d0[1] * (x1 * y2 - x2 * y1) + d1[1] * (x2 * y0 - x0 * y2) + d2[1] * (x0 * y1 - x1 * y0)) / den;
+  const p0 = inf(d0), p1 = inf(d1), p2 = inf(d2);
+  ctx.save();
+  ctx.beginPath(); ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]); ctx.closePath(); ctx.clip();
+  ctx.transform(a, b, c, d, e, f);
+  ctx.drawImage(img, 0, 0);
+  ctx.restore();
+}
+function drawWarped(ctx, src, H, u0, vTop, L, A){
+  const N = 8, sw = src.width, sh = src.height;
+  const D = [], S = [];
+  for (let j = 0; j <= N; j++){ D[j] = []; S[j] = []; for (let i = 0; i <= N; i++){ D[j][i] = hApply(H, u0 + L * i / N, vTop - A * j / N); S[j][i] = [sw * i / N, sh * j / N]; } }
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++){
+    drawTri(ctx, src, S[j][i], S[j][i + 1], S[j + 1][i], D[j][i], D[j][i + 1], D[j + 1][i]);
+    drawTri(ctx, src, S[j][i + 1], S[j + 1][i + 1], S[j + 1][i], D[j][i + 1], D[j + 1][i + 1], D[j + 1][i]);
+  }
+}
+function wallLight(q){
+  // brilho da parede na \u00e1rea onde o quadro vai ficar (m\u00e9dia dos pixels pr\u00f3ximos ao brilho predominante)
+  if (!photo.pix) return 1;
+  const xs = q.map(p => p[0]), ys = q.map(p => p[1]);
+  const x0 = Math.max(0, Math.floor(Math.min(...xs))), x1 = Math.min(photo.w - 1, Math.ceil(Math.max(...xs)));
+  const y0 = Math.max(0, Math.floor(Math.min(...ys))), y1 = Math.min(photo.h - 1, Math.ceil(Math.max(...ys)));
+  if (x1 <= x0 || y1 <= y0) return 1;
+  const step = Math.max(1, Math.round(Math.sqrt((x1 - x0) * (y1 - y0) / 6000)));
+  const L = [];
+  for (let y = y0; y <= y1; y += step) for (let x = x0; x <= x1; x += step){
+    if (!inPoly([x, y], q)) continue;
+    const k = (y * photo.w + x) * 4, d = photo.pix.data;
+    L.push((0.299 * d[k] + 0.587 * d[k + 1] + 0.114 * d[k + 2]) / 255);
+  }
+  if (!L.length) return 1;
+  L.sort((a, b) => a - b);
+  const m = L[L.length >> 1];
+  const near = L.filter(v => Math.abs(v - m) <= Math.max(0.04, m * 0.1));
+  const avg = near.reduce((a, v) => a + v, 0) / near.length;
+  return clamp(avg / 0.86, 0.5, 1.0);
+}
+function tinted(flat, light, warm){
+  const c = document.createElement('canvas'); c.width = flat.width; c.height = flat.height;
+  const x = c.getContext('2d');
+  if (FILTER_OK){ x.filter = `brightness(${light.toFixed(3)})`; x.drawImage(flat, 0, 0); x.filter = 'none'; }
+  else { x.drawImage(flat, 0, 0); if (light < 1){ x.globalCompositeOperation = 'multiply'; const g = Math.round(255 * light); x.fillStyle = `rgb(${g},${g},${g})`; x.fillRect(0, 0, c.width, c.height); } }
+  if (warm){
+    x.globalCompositeOperation = 'multiply';
+    const r = warm < 0 ? 255 + warm * 3 : 255, g = 255 - Math.abs(warm) * 1.2, b = warm > 0 ? 255 - warm * 3 : 255;
+    x.fillStyle = `rgb(${Math.round(r)},${Math.round(g)},${Math.round(b)})`; x.fillRect(0, 0, c.width, c.height);
+  }
+  x.globalCompositeOperation = 'source-over';
+  return c;
+}
+function quadPath(ctx, q){ ctx.beginPath(); ctx.moveTo(q[0][0], q[0][1]); for (let i = 1; i < q.length; i++) ctx.lineTo(q[i][0], q[i][1]); ctx.closePath(); }
+
+async function drawPhoto(cv, col, R, interactive, seq){
+  if (!photo.cv) return;
+  const items = [];
+  const calibrating = interactive && (photo.editing || photo.pts.length < 4);
+  if (photo.H && R && R.ok && !calibrating){
+    const pfs = photoFrames(R);
+    for (let k = 0; k < pfs.length; k++){
+      const pf = pfs[k], L = pf.f.L, A = pf.f.A;
+      const q = [[pf.u0, pf.vTop], [pf.u0 + L, pf.vTop], [pf.u0 + L, pf.vTop - A], [pf.u0, pf.vTop - A]].map(p => hApply(photo.H, p[0], p[1]));
+      const pxcm = Math.max(Math.hypot(q[1][0] - q[0][0], q[1][1] - q[0][1]) / L, Math.hypot(q[3][0] - q[0][0], q[3][1] - q[0][1]) / A);
+      const ppc = clamp(Math.round(pxcm * 1.5 * 2) / 2, 2, 14);
+      let flat;
+      try { flat = await flatFor(R, pf.f, k, col, ppc); } catch(e){ continue; }
+      if (seq !== undefined && seq !== photoSeq) return;
+      items.push({ pf, q, flat, pxcm });
+    }
+  }
+  const ctx = cv.getContext('2d');
+  const sc = cv.width / photo.w;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(photo.cv, 0, 0, cv.width, cv.height);
+  ctx.setTransform(sc, 0, 0, sc, 0, 0);
+  const userLight = num(state.photoLight, 100) / 100, warm = num(state.photoWarm, 0);
+  if (interactive) photo.quads = items.map(it => it.q);
+  items.forEach(it => {
+    const { pf, q, flat, pxcm } = it, L = pf.f.L, A = pf.f.A;
+    const light = clamp(wallLight(q) * userLight, 0.3, 1.5);
+    // sombra projetada na parede
+    const sq = [[pf.u0 + 0.8, pf.vTop - 1.6], [pf.u0 + L + 0.8, pf.vTop - 1.6], [pf.u0 + L + 0.8, pf.vTop - A - 2.4], [pf.u0 + 0.8, pf.vTop - A - 2.4]].map(p => hApply(photo.H, p[0], p[1]));
+    ctx.save();
+    if (FILTER_OK){ ctx.filter = `blur(${Math.max(1, pxcm * 1.6 * sc).toFixed(1)}px)`; ctx.fillStyle = 'rgba(0,0,0,0.32)'; quadPath(ctx, sq); ctx.fill(); }
+    else { ctx.fillStyle = 'rgba(0,0,0,0.12)'; quadPath(ctx, sq); ctx.fill(); }
+    ctx.restore();
+    drawWarped(ctx, tinted(flat, light, warm), photo.H, pf.u0, pf.vTop, L, A);
+  });
+  if (interactive) drawPhotoOverlay(ctx, cv);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+function drawPhotoOverlay(ctx, cv){
+  const k = cv.width / Math.max(1, cv.getBoundingClientRect().width || cv.width);
+  const calib = photo.pts.length < 4 || photo.editing;
+  if (!calib) return;
+  const pts = photo.pts;
+  if (pts.length === 4){
+    const c = orderCorners(pts), q = [c.TL, c.TR, c.BR, c.BL];
+    // lados prolongados por toda a foto, para alinhar com o teto, o rodap\u00e9 ou a quina vis\u00edveis
+    ctx.setLineDash([10 * k, 8 * k]);
+    for (let i = 0; i < 4; i++){
+      const a1 = q[i], b1 = q[(i + 1) % 4];
+      const ex = [a1[0] + (a1[0] - b1[0]) * 20, a1[1] + (a1[1] - b1[1]) * 20], ey = [b1[0] + (b1[0] - a1[0]) * 20, b1[1] + (b1[1] - a1[1]) * 20];
+      ctx.beginPath(); ctx.moveTo(ex[0], ex[1]); ctx.lineTo(ey[0], ey[1]);
+      ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 3 * k; ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,213,74,0.85)'; ctx.lineWidth = 1.2 * k; ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    quadPath(ctx, q); ctx.fillStyle = 'rgba(255,213,74,0.14)'; ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 4 * k; ctx.stroke();
+    ctx.strokeStyle = '#FFD54A'; ctx.lineWidth = 2 * k; ctx.stroke();
+    // medidas informadas nos lados
+    const RW = num(state.refW), RH = num(state.refH);
+    const label = (t, x, y) => {
+      ctx.font = `600 ${Math.round(14 * k)}px Arial, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const w = ctx.measureText(t).width + 12 * k;
+      ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(x - w / 2, y - 11 * k, w, 22 * k);
+      ctx.fillStyle = '#FFD54A'; ctx.fillText(t, x, y);
+    };
+    label(RW > 0 ? `${fmt(RW)} cm` : 'largura ?', (c.TL[0] + c.TR[0]) / 2, (c.TL[1] + c.TR[1]) / 2 - 16 * k);
+    label(RH > 0 ? `${fmt(RH)} cm` : 'altura ?', (c.TL[0] + c.BL[0]) / 2 + 34 * k, (c.TL[1] + c.BL[1]) / 2);
+  } else if (pts.length >= 2){
+    ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]));
+    ctx.setLineDash([8 * k, 6 * k]);
+    ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 4 * k; ctx.stroke();
+    ctx.strokeStyle = '#FFD54A'; ctx.lineWidth = 2 * k; ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  pts.forEach((p, i) => {
+    const sel = i === photo.sel, r = (sel ? 11 : 9) * k;
+    ctx.beginPath(); ctx.arc(p[0], p[1], r, 0, Math.PI * 2);
+    ctx.fillStyle = sel ? 'rgba(255,59,48,0.30)' : 'rgba(255,213,74,0.35)'; ctx.fill();
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 3 * k; ctx.stroke(); ctx.strokeStyle = sel ? '#FF3B30' : '#FFD54A'; ctx.lineWidth = 1.8 * k; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(p[0] - 5 * k, p[1]); ctx.lineTo(p[0] + 5 * k, p[1]); ctx.moveTo(p[0], p[1] - 5 * k); ctx.lineTo(p[0], p[1] + 5 * k); ctx.strokeStyle = '#000'; ctx.lineWidth = 1 * k; ctx.stroke();
+  });
+  // lupa
+  const lp = photo.hover || (photo.sel >= 0 ? photo.pts[photo.sel] : null);
+  if (lp){
+    const [hx, hy] = lp, R = 75 * k, Z = 4;
+    const cx = hx < photo.w / 2 ? photo.w - R - 16 * k : R + 16 * k, cy = R + 16 * k;
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
+    ctx.fillStyle = '#000'; ctx.fillRect(cx - R, cy - R, 2 * R, 2 * R);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(photo.cv, hx - R / Z, hy - R / Z, 2 * R / Z, 2 * R / Z, cx - R, cy - R, 2 * R, 2 * R);
+    ctx.imageSmoothingEnabled = true;
+    ctx.strokeStyle = '#FF3B30'; ctx.lineWidth = 1.5 * k;
+    ctx.beginPath(); ctx.moveTo(cx - R, cy); ctx.lineTo(cx - 6 * k, cy); ctx.moveTo(cx + 6 * k, cy); ctx.lineTo(cx + R, cy); ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy - 6 * k); ctx.moveTo(cx, cy + 6 * k); ctx.lineTo(cx, cy + R); ctx.stroke();
+    ctx.restore();
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.strokeStyle = '#FFF'; ctx.lineWidth = 3 * k; ctx.stroke(); ctx.strokeStyle = '#000'; ctx.lineWidth = 1 * k; ctx.stroke();
+  }
+}
+function photoRefresh(){
+  const cv = $('photoCanvas'); if (!cv) return;
+  const seq = ++photoSeq;
+  drawPhoto(cv, selectedColors()[0], current, true, seq);
+}
+function photoStepText(){
+  if (!photo.img) return 'Carregue uma foto da parede tirada de frente, com a lente normal do celular (1x).';
+  if (photo.pts.length < 4) return `Clique nos 4 cantos de um ret\u00e2ngulo de medida conhecida na parede: a parede inteira, uma porta ou uma janela. Faltam ${4 - photo.pts.length}. A lupa no canto da foto ajuda na precis\u00e3o.`;
+  if (!(num(state.refW) > 0 && num(state.refH) > 0)) return (photo.editing ? 'Confira o ret\u00e2ngulo e ajuste os pontos se precisar. ' : '') + 'Informe a largura e a altura reais desse ret\u00e2ngulo, em cent\u00edmetros.';
+  if (!photo.H && !photo.editing) return 'Os 4 cantos n\u00e3o formam um ret\u00e2ngulo v\u00e1lido. Ajuste os cantos ou clique em "Remarcar do zero".';
+  if (photo.editing) return 'Confira o ret\u00e2ngulo. Arraste os pontos at\u00e9 os cantos exatos; as linhas tracejadas prolongam os lados e ajudam quando o canto est\u00e1 escondido atr\u00e1s de um objeto. As setas do teclado movem o ponto selecionado (com Shift, mais r\u00e1pido). Quando estiver certo, clique em "Confirmar ret\u00e2ngulo".';
+  return 'Arraste os quadros na foto para posicionar. A altura inicial segue a regra de altura (centro a 160 cm ou a dist\u00e2ncia acima do m\u00f3vel).';
+}
+function attachPhotoEvents(cv){
+  const toP = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * cv.width, (e.clientY - r.top) / r.height * cv.height]; };
+  const kpx = () => cv.width / cv.getBoundingClientRect().width;
+  cv.addEventListener('pointerdown', e => {
+    const p = toP(e), k = kpx();
+    try { cv.focus({ preventScroll: true }); } catch(err){}
+    const calib = photo.pts.length < 4 || photo.editing;
+    if (calib){
+      const i = photo.pts.findIndex(q => Math.hypot(q[0] - p[0], q[1] - p[1]) < 14 * k);
+      if (i >= 0){ photo.dragPt = i; photo.sel = i; }
+      else if (photo.pts.length < 4){
+        photo.pts.push(p); photo.sel = photo.pts.length - 1;
+        if (photo.pts.length === 4){ photo.editing = true; calibrate(); }
+        renderFotoMode(); return;
+      } else return;
+    } else if (photo.Hinv && photo.quads.some(q => inPoly(p, q))){
+      const w = hApply(photo.Hinv, p[0], p[1]);
+      const qi = photo.quads.findIndex(q => inPoly(p, q));
+      if (photo.dragMode === 'img' && images.length){
+        const key = state.artMode === 'split' ? 'split' : 'q' + qi;
+        const p0 = imgPos[key] || {}, ov = artOverflow(current, key);
+        photo.dragImg = { key, u: w[0], v: w[1], fx0: p0.fx === undefined ? 0.5 : p0.fx, fy0: p0.fy === undefined ? 0.5 : p0.fy, ox: ov.ox, oy: ov.oy };
+        if ($('frTarget').querySelector(`option[value="${key}"]`)){ $('frTarget').value = key; }
+      } else photo.dragSet = { u: w[0], v: w[1], dx: Number(state.photoDX) || 0, dy: Number(state.photoDY) || 0 };
+    } else return;
+    e.preventDefault();
+    try { cv.setPointerCapture(e.pointerId); } catch(err){}
+  });
+  cv.addEventListener('pointermove', e => {
+    const p = toP(e);
+    const calib = photo.pts.length < 4 || photo.editing;
+    if (photo.dragPt >= 0){ photo.pts[photo.dragPt] = p; photo.hover = p; calibrate(); photoRefresh(); return; }
+    if (photo.dragImg && photo.Hinv){
+      const w = hApply(photo.Hinv, p[0], p[1]), d = photo.dragImg;
+      const fx = d.ox > 0.05 ? clamp(d.fx0 - (w[0] - d.u) / d.ox, 0, 1) : 0.5;
+      const fy = d.oy > 0.05 ? clamp(d.fy0 + (w[1] - d.v) / d.oy, 0, 1) : 0.5;
+      imgPos[d.key] = { ...(imgPos[d.key] || {}), fx, fy };
+      photoRefresh(); return;
+    }
+    if (photo.dragSet && photo.Hinv){
+      const w = hApply(photo.Hinv, p[0], p[1]);
+      state.photoDX = photo.dragSet.dx + (w[0] - photo.dragSet.u);
+      state.photoDY = photo.dragSet.dy + (w[1] - photo.dragSet.v);
+      photoRefresh(); return;
+    }
+    cv.style.cursor = calib ? 'crosshair' : (photo.quads.some(q => inPoly(p, q)) ? 'move' : 'default');
+    if (calib){ photo.hover = p; photoRefresh(); }
+  });
+  const up = () => { if (photo.dragPt >= 0 || photo.dragSet || photo.dragImg){ photo.dragPt = -1; photo.dragSet = null; photo.dragImg = null; persist(); renderFotoMode(); buildFraming(current); } };
+  cv.addEventListener('pointerup', up);
+  cv.addEventListener('pointercancel', up);
+  cv.addEventListener('pointerleave', () => { if (photo.hover && photo.dragPt < 0){ photo.hover = null; photoRefresh(); } });
+}
+function renderFotoMode(){
+  const R = compute(photoState());
+  current = R;
+  const msgs = $('msgs'); msgs.innerHTML = '';
+  $('photoStep').textContent = photoStepText();
+  $('photoAdjust').hidden = $('photoReset').hidden = photo.pts.length < 4;
+  $('photoCenter').hidden = !photo.H;
+  $('photoAdjust').textContent = photo.editing ? 'Confirmar ret\u00e2ngulo' : 'Ajustar cantos';
+  $('photoAdjust').classList.toggle('primary', photo.editing);
+  $('photoAdjust').classList.toggle('ghost', !photo.editing);
+  $('photoAdjust').disabled = false;
+  const lv = num(state.photoLight, 100); $('lightVal').textContent = lv === 100 ? 'autom\u00e1tica' : `autom\u00e1tica ${lv > 100 ? '+' : '\u2212'}${Math.abs(lv - 100)}%`;
+  const wv = num(state.photoWarm, 0); $('warmVal').textContent = wv === 0 ? 'neutro' : wv > 0 ? 'mais quente' : 'mais frio';
+  const ready = !!(photo.H && R.ok && !photo.editing);
+  $('btnPng').disabled = $('btnPdf').disabled = !ready;
+  if (!R.ok){
+    msgs.innerHTML = `<div class="msg err"><ul>${R.errors.map(e => `<li>${esc(e)}</li>`).join('')}</ul></div>`;
+    $('chips').innerHTML = '';
+  } else {
+    if (R.warnings.length) msgs.innerHTML = `<div class="msg warn"><ul>${R.warnings.map(e => `<li>${esc(e)}</li>`).join('')}</ul></div>`;
+    $('chips').innerHTML = chipsHTML(R);
+  }
+  if (!photo.img){
+    $('sheet').innerHTML = '<div class="photoEmpty">Carregue a foto do cliente no painel ao lado para come\u00e7ar.</div>';
+    return;
+  }
+  let cv = $('photoCanvas');
+  if (!cv){
+    $('sheet').innerHTML = '<div class="photoBar" id="photoBar"></div><canvas id="photoCanvas" tabindex="0" aria-label="Foto do cliente"></canvas><div class="photoExtra" id="photoExtra"></div>';
+    cv = $('photoCanvas'); attachPhotoEvents(cv);
+  }
+  if (cv.width !== photo.w || cv.height !== photo.h){ cv.width = photo.w; cv.height = photo.h; }
+  // barra de a\u00e7\u00f5es logo acima da foto
+  const bar = $('photoBar');
+  const calib = photo.pts.length < 4 || photo.editing;
+  const refsOk = num(state.refW) > 0 && num(state.refH) > 0;
+  let bh = `<p>${esc(photoStepText())}</p><div class="actions">`;
+  if (photo.editing) bh += `<button type="button" class="btn primary sm" data-act="confirm">Confirmar ret\u00e2ngulo</button>`;
+  if (!calib && images.length) bh += `<span class="dragSeg">Arrastar na foto move: <button type="button" class="btn sm${photo.dragMode !== 'img' ? ' primary' : ''}" data-act="dragFrames">os quadros</button><button type="button" class="btn sm${photo.dragMode === 'img' ? ' primary' : ''}" data-act="dragImg">a imagem dentro do quadro</button></span>`;
+  if (!calib) bh += `<button type="button" class="btn ghost sm" data-act="adjust">Ajustar cantos</button><button type="button" class="btn ghost sm" data-act="center">Centralizar quadros</button>`;
+  if (photo.pts.length) bh += `<button type="button" class="btn ghost sm" data-act="reset">Remarcar do zero</button>`;
+  bh += `</div>`;
+  if (photo.editing) bh += `<div class="refRow"><label>Largura real <small>cm</small><input type="text" id="barRefW" inputmode="decimal" value="${esc(state.refW || '')}"></label><label>Altura real <small>cm</small><input type="text" id="barRefH" inputmode="decimal" value="${esc(state.refH || '')}"></label></div>`;
+  if (bar.dataset.sig !== bh){ bar.innerHTML = bh; bar.dataset.sig = bh; }
+  bar.hidden = false;
+  photoRefresh();
+  // compara\u00e7\u00e3o de cores: miniaturas das demais cores
+  const cols = selectedColors(), ex = $('photoExtra');
+  ex.innerHTML = '';
+  if (ready && cols.length > 1){
+    cols.slice(1).forEach(c => {
+      const fig = document.createElement('figure');
+      const mc = document.createElement('canvas'); mc.width = Math.round(photo.w / 2); mc.height = Math.round(photo.h / 2);
+      const cap = document.createElement('figcaption'); cap.textContent = c.name;
+      fig.appendChild(mc); fig.appendChild(cap); ex.appendChild(fig);
+      drawPhoto(mc, c, R, false);
+    });
+  }
+}
+async function photoExports(){
+  const out = [];
+  for (const c of selectedColors()){
+    const oc = document.createElement('canvas'); oc.width = photo.w; oc.height = photo.h;
+    await drawPhoto(oc, c, current, false);
+    out.push({ src: oc.toDataURL('image/jpeg', 0.92), w: photo.w, h: photo.h });
+  }
+  return out;
+}
+$('photoFile').addEventListener('change', e => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  const fr = new FileReader();
+  fr.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const sc = Math.min(1, 2000 / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(img.naturalWidth * sc)); c.height = Math.max(1, Math.round(img.naturalHeight * sc));
+      const x = c.getContext('2d'); x.drawImage(img, 0, 0, c.width, c.height);
+      try { photo.pix = x.getImageData(0, 0, c.width, c.height); } catch(err){ photo.pix = null; }
+      Object.assign(photo, { img, cv: c, w: c.width, h: c.height, pts: [], H: null, Hinv: null, editing: false, sel: -1, hover: null, quads: [] });
+      state.photoDX = 0; state.photoDY = 0;
+      const old = $('photoCanvas'); if (old) $('sheet').innerHTML = '';
+      renderFotoMode();
+    };
+    img.onerror = () => setStatus('N\u00e3o foi poss\u00edvel abrir essa foto. Use JPG ou PNG.');
+    img.src = fr.result;
+  };
+  fr.readAsDataURL(file);
+});
+$('sheet').addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const act = b.dataset.act;
+  if (act === 'confirm'){
+    if (!(num(state.refW) > 0 && num(state.refH) > 0)){ setStatus('Informe a largura e a altura reais do ret\u00e2ngulo antes de confirmar.'); const f = $('barRefW') || $('refW'); if (f) f.focus(); return; }
+    calibrate();
+    if (!photo.H){ setStatus('Os 4 pontos n\u00e3o formam um ret\u00e2ngulo v\u00e1lido. Ajuste os cantos.'); return; }
+    photo.editing = false; photo.sel = -1; photo.hover = null; setStatus('');
+  } else if (act === 'adjust'){ photo.editing = true; if (photo.sel < 0) photo.sel = 0; }
+  else if (act === 'center'){ state.photoDX = 0; state.photoDY = 0; persist(); }
+  else if (act === 'dragFrames'){ photo.dragMode = 'frames'; }
+  else if (act === 'dragImg'){ photo.dragMode = 'img'; }
+  else if (act === 'reset'){ photo.pts = []; photo.H = photo.Hinv = null; photo.editing = false; photo.sel = -1; }
+  renderFotoMode();
+});
+$('sheet').addEventListener('input', e => {
+  const id = e.target.id;
+  if (id !== 'barRefW' && id !== 'barRefH') return;
+  const k = id === 'barRefW' ? 'refW' : 'refH';
+  state[k] = e.target.value; $(k).value = e.target.value; calibrate(); persist();
+  $('photoStep').textContent = photoStepText();
+  photoRefresh();
+});
+$('photoAdjust').addEventListener('click', () => {
+  if (photo.editing){ const b = document.querySelector('#photoBar [data-act="confirm"]'); if (b) b.click(); return; }
+  photo.editing = true; photo.hover = null; if (photo.sel < 0) photo.sel = 0; renderFotoMode();
+});
+$('photoReset').addEventListener('click', () => { photo.pts = []; photo.H = photo.Hinv = null; photo.editing = false; photo.sel = -1; renderFotoMode(); });
+document.addEventListener('keydown', e => {
+  if (state.mode !== 'foto' || !(photo.editing || photo.pts.length < 4) || photo.sel < 0 || !photo.pts[photo.sel]) return;
+  if (/^(INPUT|SELECT|TEXTAREA)$/.test((e.target && e.target.tagName) || '')) return;
+  const d = e.shiftKey ? 10 : 1, mv = { ArrowLeft: [-d, 0], ArrowRight: [d, 0], ArrowUp: [0, -d], ArrowDown: [0, d] }[e.key];
+  if (!mv) return;
+  e.preventDefault();
+  const p = photo.pts[photo.sel]; photo.pts[photo.sel] = [clamp(p[0] + mv[0], 0, photo.w), clamp(p[1] + mv[1], 0, photo.h)];
+  photo.hover = null; calibrate(); renderFotoMode();
+});
+$('photoCenter').addEventListener('click', () => { state.photoDX = 0; state.photoDY = 0; persist(); renderFotoMode(); });
+function setMode(m){
+  state.mode = m; persist(); updateUI();
+  $('sheet').innerHTML = '';
+  render();
+}
+$('modeIl').addEventListener('click', () => setMode('il'));
+$('modeFoto').addEventListener('click', () => setMode('foto'));
+
+// enquadramento da imagem: arrastar na pr\u00e9via e zoom
+function framingKeys(R){
+  if (!images.length || !R || !R.ok) return [];
+  if (state.artMode === 'split') return [['split', 'Conjunto inteiro']];
+  return R.frames.map((f, k) => ['q' + k, `Quadro ${k + 1}`]);
+}
+function buildFraming(R){
+  const keys = framingKeys(R);
+  $('framingBox').hidden = !keys.length;
+  $('artHint').hidden = !!images.length;
+  if (!keys.length) return;
+  const sel = $('frTarget'), cur = sel.value;
+  const html = keys.map(([k, n]) => `<option value="${k}">${n}</option>`).join('');
+  if (sel.dataset.sig !== html){ sel.innerHTML = html; sel.dataset.sig = html; }
+  if (keys.some(k => k[0] === cur)) sel.value = cur;
+  syncZoom();
+}
+function artOverflow(R, key){
+  // quanto a imagem sobra (em cm) al\u00e9m da \u00e1rea da arte, em cada dire\u00e7\u00e3o
+  if (!images.length || !R || !R.ok) return { ox: 0, oy: 0 };
+  const p0 = imgPos[key] || {}, z = Math.max(1, p0.z || 1);
+  let aw, ah, im;
+  if (key === 'split'){
+    const Y = h => R.H - h;
+    const xs = R.frames.map(f => f.x0 + FRAME_T), xe = R.frames.map(f => f.x0 + f.L - FRAME_T);
+    const ys = R.frames.map(f => Y(f.top) + FRAME_T), ye = R.frames.map(f => Y(f.top) + f.A - FRAME_T);
+    aw = Math.max(...xe) - Math.min(...xs); ah = Math.max(...ye) - Math.min(...ys); im = images[0];
+  } else {
+    const k = Number(key.slice(1)), f = R.frames[k]; if (!f) return { ox: 0, oy: 0 };
+    aw = f.L - 2 * FRAME_T; ah = f.A - 2 * FRAME_T;
+    im = state.artMode === 'same' ? images[0] : images[k % images.length];
+  }
+  const sc = Math.max(aw / im.w, ah / im.h) * z;
+  return { ox: im.w * sc - aw, oy: im.h * sc - ah };
+}
+function posLabel(v, a, b){ return v < 0.34 ? a : v > 0.66 ? b : 'centro'; }
+function syncZoom(){
+  const key = $('frTarget').value, p0 = imgPos[key] || {};
+  const z = Math.round((p0.z || 1) * 100);
+  $('frZoom').value = z; $('zoomVal').textContent = z + '%';
+  const fx = p0.fx === undefined ? 0.5 : p0.fx, fy = p0.fy === undefined ? 0.5 : p0.fy;
+  $('frX').value = Math.round(fx * 100); $('frY').value = Math.round(fy * 100);
+  $('frXVal').textContent = posLabel(fx, 'esquerda', 'direita'); $('frYVal').textContent = posLabel(fy, 'topo', 'base');
+  const ov = artOverflow(current, key);
+  $('frX').disabled = ov.ox < 0.05; $('frY').disabled = ov.oy < 0.05;
+  const msg = [];
+  if (ov.ox < 0.05) msg.push('na horizontal');
+  if (ov.oy < 0.05) msg.push('na vertical');
+  $('frNoMove').hidden = !msg.length;
+  $('frNoMove').textContent = msg.length ? `A imagem j\u00e1 ocupa o quadro inteiro ${msg.join(' e ')}. Aumente o zoom para poder mover nessa dire\u00e7\u00e3o.` : '';
+}
+['frX', 'frY'].forEach(id => $(id).addEventListener('input', () => {
+  const k = $('frTarget').value; if (!k) return;
+  imgPos[k] = { ...(imgPos[k] || {}), [id === 'frX' ? 'fx' : 'fy']: num($(id).value, 50) / 100 };
+  render();
+}));
+$('frTarget').addEventListener('change', syncZoom);
+$('frZoom').addEventListener('input', () => {
+  const k = $('frTarget').value; if (!k) return;
+  imgPos[k] = { ...(imgPos[k] || {}), z: num($('frZoom').value, 100) / 100 };
+  $('zoomVal').textContent = $('frZoom').value + '%';
+  render();
+});
+$('frReset').addEventListener('click', () => { const k = $('frTarget').value; if (k){ imgPos[k] = { fx: 0.5, fy: 0.5, z: 1 }; render(); } });
+let drag = null;
+$('sheet').addEventListener('pointerdown', e => {
+  const t = e.target.closest('[data-drag]'); if (!t) return;
+  e.preventDefault();
+  const key = t.getAttribute('data-drag');
+  const img = $('sheet').querySelector(`image[data-k="${key}"]`); if (!img) return;
+  const pxPerCm = t.getBoundingClientRect().width / Number(t.getAttribute('width'));
+  const p0 = imgPos[key] || {};
+  drag = { key, sx: e.clientX, sy: e.clientY, pxPerCm, fx0: p0.fx === undefined ? 0.5 : p0.fx, fy0: p0.fy === undefined ? 0.5 : p0.fy,
+    ox: Number(img.getAttribute('data-ox')), oy: Number(img.getAttribute('data-oy')) };
+  try { $('sheet').setPointerCapture(e.pointerId); } catch(err){}
+  if ($('frTarget').querySelector(`option[value="${key}"]`)){ $('frTarget').value = key; syncZoom(); }
+});
+$('sheet').addEventListener('pointermove', e => {
+  if (!drag) return;
+  const dx = (e.clientX - drag.sx) / drag.pxPerCm, dy = (e.clientY - drag.sy) / drag.pxPerCm;
+  const fx = drag.ox > 0.05 ? clamp(drag.fx0 - dx / drag.ox, 0, 1) : 0.5;
+  const fy = drag.oy > 0.05 ? clamp(drag.fy0 - dy / drag.oy, 0, 1) : 0.5;
+  imgPos[drag.key] = { ...(imgPos[drag.key] || {}), fx, fy };
+  $('sheet').querySelectorAll(`image[data-k="${drag.key}"]`).forEach(im => {
+    im.setAttribute('x', Number(im.getAttribute('data-ax')) - Number(im.getAttribute('data-ox')) * fx);
+    im.setAttribute('y', Number(im.getAttribute('data-ay')) - Number(im.getAttribute('data-oy')) * fy);
+  });
+});
+const endDrag = () => { if (drag){ drag = null; render(); } };
+$('sheet').addEventListener('pointerup', endDrag);
+$('sheet').addEventListener('pointercancel', endDrag);
+
+$('artClear').addEventListener('click', () => { images = []; imgPos = {}; imagesVersion++; updateUI(); render(); });
+
+$('f').addEventListener('input', e => {
+  const id = e.target.id;
+  if (!id || id.startsWith('size_') || id.startsWith('pick') || id.startsWith('fr') || id === 'wallColor' || e.target.closest('#colorEditor')) return;
+  if (id === 'furn'){
+    const t = e.target.value;
+    if (FURN[t]){ $('furnW').value = FURN[t].w; $('furnH').value = FURN[t].h; $('furnGap').value = FURN[t].gap; $('furnColor').value = FURN[t].color; }
+  }
+  if (id === 'compare'){
+    readForm();
+    if (state.compare && !(state.compareIds || []).length) state.compareIds = [state.color];
+    buildSwatches();
+  }
+  readForm(); if (/^ref/.test(id)) calibrate(); buildSizes(); updateUI(); render(); persist(); setStatus('');
+});
+$('f').addEventListener('submit', e => e.preventDefault());
+$('btnExample').addEventListener('click', () => { state = JSON.parse(JSON.stringify(EXAMPLE)); images = []; fillForm(); render(); persist(); });
+
+load(); fillForm(); render();
+</script>
+</body>
+</html>
