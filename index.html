@@ -128,6 +128,15 @@ input[type=range]{width:100%;accent-color:var(--accent)}
         </div>
       </fieldset>
 
+      <fieldset>
+        <legend>Posi&#xe7;&#xe3;o dos quadros</legend>
+        <select id="ref" aria-label="Posi&#xe7;&#xe3;o dos quadros">
+          <option value="piso">Pela altura do piso</option>
+          <option value="espaco">Centralizar em um espa&#xe7;o</option>
+        </select>
+        <p class="hint" id="spaceHintFoto" hidden>Marque na foto os 4 cantos do espa&#xe7;o (nicho, painel, v&#xe3;o) e informe a largura e a altura reais dele. Os quadros ficam centralizados nesse ret&#xe2;ngulo.</p>
+      </fieldset>
+
       <fieldset id="fsFoto" hidden>
         <legend>Foto do cliente</legend>
         <div class="actions">
@@ -142,17 +151,18 @@ input[type=range]{width:100%;accent-color:var(--accent)}
           <label>Largura da refer&#xea;ncia <small>cm reais</small><input type="text" id="refW" inputmode="decimal" placeholder="ex.: 80"></label>
           <label>Altura da refer&#xea;ncia <small>cm reais</small><input type="text" id="refH" inputmode="decimal" placeholder="ex.: 210"></label>
         </div>
-        <label>Base da refer&#xea;ncia <small>cm acima do piso; 0 para a parede inteira ou uma porta</small><input type="text" id="refBase" inputmode="decimal" placeholder="0"></label>
+        <label id="refBaseLabel">Base da refer&#xea;ncia <small>cm acima do piso; 0 para a parede inteira ou uma porta</small><input type="text" id="refBase" inputmode="decimal" placeholder="0"></label>
         <label>Luz sobre o quadro <small id="lightVal">autom&#xe1;tica</small><input type="range" id="photoLight" min="60" max="140" step="1" value="100"></label>
         <label>Tom da luz <small id="warmVal">neutro</small><input type="range" id="photoWarm" min="-20" max="20" step="1" value="0"></label>
       </fieldset>
 
       <fieldset id="fsParede">
-        <legend>Parede (cm)</legend>
+        <legend id="paredeLegend">Parede (cm)</legend>
         <div class="row">
-          <label>Largura <input type="text" id="wallW" inputmode="decimal"></label>
-          <label>Altura <input type="text" id="wallH" inputmode="decimal"></label>
+          <label><span id="wallWTxt">Largura</span> <input type="text" id="wallW" inputmode="decimal"></label>
+          <label><span id="wallHTxt">Altura</span> <input type="text" id="wallH" inputmode="decimal"></label>
         </div>
+        <p class="hint" id="spaceHint" hidden>Informe as medidas do espa&#xe7;o (nicho, painel, v&#xe3;o). Os quadros ficam centralizados nele, sem refer&#xea;ncia ao piso.</p>
         <div class="wallPresets" id="wallPresets"></div>
         <div class="actions">
           <label class="btn ghost sm" for="pickFile" style="flex-direction:row">Capturar cor de uma foto</label>
@@ -224,7 +234,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
         <p class="hint" id="artHint">Sem imagem, a pr&#xe9;via usa uma arte de exemplo.</p>
       </fieldset>
 
-      <fieldset>
+      <fieldset id="fsMovel">
         <legend>M&#xf3;vel</legend>
         <label>Embaixo dos quadros
           <select id="furn">
@@ -250,7 +260,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 
       <fieldset id="fsEscala">
         <legend>Escala</legend>
-        <label class="check"><input type="checkbox" id="person"> Silhueta de mulher como refer&#xea;ncia</label>
+        <label class="check" id="personLabel"><input type="checkbox" id="person"> Silhueta de mulher como refer&#xea;ncia</label>
         <label id="personHLabel">Altura da silhueta <small>cm</small><input type="text" id="personH" inputmode="decimal" placeholder="165"></label>
         <label class="check"><input type="checkbox" id="showDims"> Mostrar medidas na pr&#xe9;via</label>
       </fieldset>
@@ -365,7 +375,8 @@ function compute(s){
       sizes.push(p);
     }
   }
-  const type = FURN[s.furn] ? s.furn : 'none';
+  const space = s.ref === 'espaco';
+  const type = !space && FURN[s.furn] ? s.furn : 'none';
   let fur = null;
   if (type !== 'none'){
     const fw = num(s.furnW, FURN[type].w), fh = num(s.furnH, FURN[type].h), fg = num(s.furnGap, FURN[type].gap);
@@ -376,7 +387,7 @@ function compute(s){
   if (errors.length) return { ok:false, errors, warnings };
 
   const totalW = sizes.reduce((a, p) => a + p.L, 0) + (n - 1) * gap;
-  if (totalW > W){ errors.push(`O conjunto mede ${fmt(totalW)} cm e n\u00e3o cabe na parede de ${fmt(W)} cm.`); return { ok:false, errors, warnings }; }
+  if (totalW > W){ errors.push(`O conjunto mede ${fmt(totalW)} cm e n\u00e3o cabe ${space ? 'no espa\u00e7o' : 'na parede'} de ${fmt(W)} cm.`); return { ok:false, errors, warnings }; }
   if (fur){
     fur.x = W / 2 + furnShift - fur.w / 2;
     const nsW = fur.ns ? 2 * (48 + 6) : 0;
@@ -390,13 +401,13 @@ function compute(s){
   const frames = [];
   let x = left;
   sizes.forEach((p, i) => {
-    const top = fur ? fur.h + fur.gap + p.A : c + p.A / 2;
+    const top = fur ? fur.h + fur.gap + p.A : space ? H / 2 + p.A / 2 : c + p.A / 2;
     frames.push({ i: i + 1, L: p.L, A: p.A, x0: x, top, center: top - p.A / 2 });
     x += p.L + gap;
   });
   const maxTop = Math.max(...frames.map(f => f.top));
-  if (maxTop > H) errors.push(`O topo dos quadros ficaria a ${fmt(maxTop)} cm, acima da altura da parede.`);
-  else if (H - maxTop < 15) warnings.push(`O topo dos quadros fica a apenas ${fmt(H - maxTop)} cm do teto.`);
+  if (maxTop > H) errors.push(space ? `O quadro mais alto (${fmt(Amax)} cm) n\u00e3o cabe na altura do espa\u00e7o (${fmt(H)} cm).` : `O topo dos quadros ficaria a ${fmt(maxTop)} cm, acima da altura da parede.`);
+  else if (!space && H - maxTop < 15) warnings.push(`O topo dos quadros fica a apenas ${fmt(H - maxTop)} cm do teto.`);
   if (errors.length) return { ok:false, errors, warnings };
 
   let ratio = null;
@@ -407,7 +418,7 @@ function compute(s){
   }
   // pessoa de refer\u00eancia: nunca sobre o m\u00f3vel nem sob os quadros
   let person = null;
-  if (s.person){
+  if (s.person && !space){
     const ph = clamp(num(s.personH, 165) || 165, 120, 200);
     const half = 22 * ph / 165, margin = 8;
     const blocks = [];
@@ -423,7 +434,7 @@ function compute(s){
     if (pick) person = { x: pick.x, h: ph };
     else warnings.push('N\u00e3o h\u00e1 espa\u00e7o livre ao lado do m\u00f3vel para a silhueta. Ela foi ocultada; aumente a largura da parede ou desloque o m\u00f3vel.');
   }
-  return { ok:true, errors, warnings, W, H, n, gap, totalW, left, frames, fur, ratio, person, Amax };
+  return { ok:true, errors, warnings, space, W, H, n, gap, totalW, left, frames, fur, ratio, person, Amax };
 }
 
 // ---------- desenho ----------
@@ -719,13 +730,16 @@ function scene(R, col, opts, uidp){
   const Y = h => H - h;
   const wall = opts.wallColor || '#EEEBE5';
   const light = lum(wall) > 0.55;
-  const floorH = 22, base = 8;
+  const sp = !!R.space;
+  const floorH = sp ? 0 : 22, base = 8;
   const fsz = clamp(W * 0.018, 3.2, 7);
   const padX = 6, padTop = 6, padBot = floorH + (opts.showDims ? fsz * 3.2 : 4);
   let o = '';
   o += `<defs><linearGradient id="${uidp}w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${shade(wall, 0.04)}"/><stop offset="1" stop-color="${shade(wall, -0.04)}"/></linearGradient>`;
   o += `<linearGradient id="${uidp}f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9C7B5B"/><stop offset="1" stop-color="#B8987A"/></linearGradient></defs>`;
   o += `<rect x="0" y="0" width="${W}" height="${H}" fill="url(#${uidp}w)"/>`;
+  if (sp) o += `<rect x="0" y="0" width="${W}" height="${H}" fill="none" stroke="#000" stroke-opacity="0.22" stroke-width="${fsz * 0.08}"/>`;
+  if (!sp){
   // piso de madeira
   o += `<rect x="0" y="${H}" width="${W}" height="${floorH}" fill="url(#${uidp}f)"/>`;
   o += `<clipPath id="${uidp}fc"><rect x="0" y="${H}" width="${W}" height="${floorH}"/></clipPath><g clip-path="url(#${uidp}fc)">`;
@@ -734,6 +748,7 @@ function scene(R, col, opts, uidp){
   // rodap\u00e9
   o += `<rect x="0" y="${Y(base)}" width="${W}" height="${base}" fill="${shade(wall, light ? 0.5 : 0.75)}"/>`;
   o += `<line x1="0" y1="${Y(base)}" x2="${W}" y2="${Y(base)}" stroke="#000" stroke-opacity="0.12" stroke-width="0.3"/>`;
+  }
   const G = makeG(uidp);
   if (R.fur) o += furnitureSVG(R.fur, Y, G);
 
@@ -760,7 +775,7 @@ function scene(R, col, opts, uidp){
     const yd = H + floorH + fsz * 1.4;
     o += `<line x1="0" y1="${yd}" x2="${W}" y2="${yd}" stroke="#8A9296" stroke-width="${fsz * 0.06}"/>`;
     o += `<line x1="0" y1="${yd - fsz*0.5}" x2="0" y2="${yd + fsz*0.5}" stroke="#8A9296" stroke-width="${fsz * 0.06}"/><line x1="${W}" y1="${yd - fsz*0.5}" x2="${W}" y2="${yd + fsz*0.5}" stroke="#8A9296" stroke-width="${fsz * 0.06}"/>`;
-    o += `<text x="${W / 2}" y="${yd + fsz * 1.35}" text-anchor="middle" font-size="${fsz * 0.85}" fill="#5B656A">Parede ${fmt(W)} \u00d7 ${fmt(H)} cm</text>`;
+    o += `<text x="${W / 2}" y="${yd + fsz * 1.35}" text-anchor="middle" font-size="${fsz * 0.85}" fill="#5B656A">${sp ? 'Espa\u00e7o' : 'Parede'} ${fmt(W)} \u00d7 ${fmt(H)} cm</text>`;
   }
   return { o, vbX: -padX, vbY: -padTop, vbW: W + 2 * padX, vbH: H + padTop + padBot };
 }
@@ -814,7 +829,7 @@ function composite(R, meta, cols, opts){
   const sizes = [...new Set(R.frames.map(f => `${fmt(f.L)} \u00d7 ${fmt(f.A)}`))];
   const q = R.n === 1 ? `1 quadro ${sizes[0]} cm` : (sizes.length === 1 ? `${R.n} quadros ${sizes[0]} cm` : `${R.n} quadros (${sizes.join(', ')} cm)`);
   const molduraTxt = nC === 1 ? `moldura ${cols[0].name}` : `comparando ${nC} cores de moldura`;
-  const line1 = `${q}  \u00b7  ${molduraTxt}${R.fur ? `  \u00b7  sobre ${R.fur.name.toLowerCase()} de ${fmt(R.fur.w)} cm` : ''}`;
+  const line1 = `${q}  \u00b7  ${molduraTxt}${R.fur ? `  \u00b7  sobre ${R.fur.name.toLowerCase()} de ${fmt(R.fur.w)} cm` : ''}${R.space ? `  \u00b7  centralizado em espa\u00e7o de ${fmt(R.W)} \u00d7 ${fmt(R.H)} cm` : ''}`;
   wrapText(line1, 32, availW).forEach(l => { o += `<text x="${P}" y="${y}" font-size="32" fill="${INK}">${esc(l)}</text>`; y += 42; });
   y += 14;
 
@@ -847,13 +862,13 @@ const WALLS = [
 ];
 const EXAMPLE = { cliente:'', ambiente:'Sala', wallW:'400', wallH:'270', wallColor:'#E8E2D6', qty:'2', gap:'8', size:'73x103', diff:false, sizes:[],
   color:'c2', compare:false, compareIds:['c2','c6','c1'], artMode:'each', furn:'sofa', furnW:'220', furnH:'85', furnGap:'30', furnColor:FURN.sofa.color,
-  nightstands:true, person:true, showDims:true, furnShift:'0', setShift:'0', center:'160', personSide:'esq', personH:'165', mode:'il', refW:'', refH:'', refBase:'0', photoLight:'100', photoWarm:'0', photoDX:0, photoDY:0 };
+  nightstands:true, person:true, showDims:true, furnShift:'0', setShift:'0', center:'160', personSide:'esq', personH:'165', ref:'piso', mode:'il', refW:'', refH:'', refBase:'0', photoLight:'100', photoWarm:'0', photoDX:0, photoDY:0 };
 let state = JSON.parse(JSON.stringify(EXAMPLE));
 let colors = JSON.parse(JSON.stringify(DEFAULT_COLORS));
 let images = [];
 let imgPos = {};
 let current = null;
-const FIELDS = ['cliente','ambiente','wallW','wallH','qty','gap','size','artMode','furn','furnW','furnH','furnGap','furnColor','furnShift','setShift','center','personSide','personH','refW','refH','refBase','photoLight','photoWarm'];
+const FIELDS = ['cliente','ambiente','ref','wallW','wallH','qty','gap','size','artMode','furn','furnW','furnH','furnGap','furnColor','furnShift','setShift','center','personSide','personH','refW','refH','refBase','photoLight','photoWarm'];
 const CHECKS = ['diff','compare','nightstands','person','showDims'];
 
 function load(){
@@ -881,6 +896,18 @@ function updateUI(){
   const foto = state.mode === 'foto';
   $('fsFoto').hidden = !foto; $('fsParede').hidden = foto; $('fsEscala').hidden = foto;
   $('furnColorLabel').hidden = foto;
+  const esp = state.ref === 'espaco' && !foto;
+  $('paredeLegend').textContent = esp ? 'Espa\u00e7o (cm)' : 'Parede (cm)';
+  $('wallWTxt').textContent = esp ? 'Largura do espa\u00e7o' : 'Largura';
+  $('wallHTxt').textContent = esp ? 'Altura do espa\u00e7o' : 'Altura';
+  $('spaceHint').hidden = !esp;
+  $('fsMovel').hidden = esp;
+  $('personLabel').hidden = esp;
+  if (esp) $('personHLabel').hidden = true;
+  const espF = state.ref === 'espaco' && foto;
+  $('spaceHintFoto').hidden = !espF;
+  $('refBaseLabel').hidden = espF;
+  if (espF) $('fsMovel').hidden = true;
   if (foto) $('nsLabel').hidden = true;
   $('modeIl').setAttribute('aria-pressed', String(!foto)); $('modeFoto').setAttribute('aria-pressed', String(foto));
   $('compareHint').hidden = !state.compare;
@@ -971,7 +998,12 @@ function chipsHTML(R){
     const pct = Math.round(R.ratio * 100);
     chips.push(`<span class="chip${pct < 50 || pct > 80 ? ' alert' : ''}">Ocupa <b>${pct}%</b> ${R.fur.art === 'a' ? 'da' : 'do'} ${R.fur.name.toLowerCase()} <span style="opacity:.75">(refer\u00eancia usual: 50% a 80%)</span></span>`);
   }
-  if (state.mode !== 'foto'){
+  if (R.space){
+    const foto = state.mode === 'foto', dx = foto ? Number(state.photoDX) || 0 : 0, dy = foto ? Number(state.photoDY) || 0 : 0;
+    const fe = R.left + dx, fd = R.W - R.left - R.totalW - dx, fv = (R.H - R.Amax) / 2;
+    const pair = (a, b) => Math.abs(a - b) < 0.25 ? `${fmt(a)} cm` : `${fmt(a)} / ${fmt(b)} cm`;
+    chips.push(`<span class="chip">Folga <b>${pair(fe, fd)}</b> nas laterais e <b>${pair(fv - dy, fv + dy)}</b> em cima e embaixo</span>`);
+  } else if (state.mode !== 'foto'){
     const cMin = Math.min(...R.frames.map(f => f.center));
     chips.push(`<span class="chip">Centro a <b>${fmt(cMin)} cm</b> do piso</span>`);
   } else if (photo.H){
@@ -1252,9 +1284,13 @@ function calibrate(){
   photo.H = solveHomography([[0, 0], [RW, 0], [RW, RH], [0, RH]], [c.BL, c.BR, c.TR, c.TL]);
   photo.Hinv = photo.H && hInverse(photo.H);
 }
-function photoState(){ return { ...state, wallW: '10000', wallH: '2000', person: false, furnShift: '0', setShift: '0', nightstands: false }; }
+function photoSpace(){ return state.ref === 'espaco' && num(state.refW) > 0 && num(state.refH) > 0; }
+function photoState(){
+  const sp = photoSpace();
+  return { ...state, ref: sp ? 'espaco' : 'piso', wallW: sp ? String(num(state.refW)) : '10000', wallH: sp ? String(num(state.refH)) : '2000', person: false, furnShift: '0', setShift: '0', nightstands: false };
+}
 function photoFrames(R){
-  const RW = num(state.refW, 0), base = num(state.refBase, 0);
+  const RW = num(state.refW, 0), base = R.space ? 0 : num(state.refBase, 0);
   const dx = Number(state.photoDX) || 0, dy = Number(state.photoDY) || 0;
   return R.frames.map(f => ({ f, u0: f.x0 - R.W / 2 + RW / 2 + dx, vTop: f.top - base + dy }));
 }
@@ -1448,10 +1484,12 @@ function photoRefresh(){
 }
 function photoStepText(){
   if (!photo.img) return 'Carregue uma foto da parede tirada de frente, com a lente normal do celular (1x).';
+  if (photo.pts.length < 4 && state.ref === 'espaco') return `Clique nos 4 cantos do espa\u00e7o onde os quadros v\u00e3o ficar (nicho, painel, v\u00e3o). Faltam ${4 - photo.pts.length}. A lupa no canto da foto ajuda na precis\u00e3o.`;
   if (photo.pts.length < 4) return `Clique nos 4 cantos de um ret\u00e2ngulo de medida conhecida na parede: a parede inteira, uma porta ou uma janela. Faltam ${4 - photo.pts.length}. A lupa no canto da foto ajuda na precis\u00e3o.`;
   if (!(num(state.refW) > 0 && num(state.refH) > 0)) return (photo.editing ? 'Confira o ret\u00e2ngulo e ajuste os pontos se precisar. ' : '') + 'Informe a largura e a altura reais desse ret\u00e2ngulo, em cent\u00edmetros.';
   if (!photo.H && !photo.editing) return 'Os 4 cantos n\u00e3o formam um ret\u00e2ngulo v\u00e1lido. Ajuste os cantos ou clique em "Remarcar do zero".';
   if (photo.editing) return 'Confira o ret\u00e2ngulo. Arraste os pontos at\u00e9 os cantos exatos; as linhas tracejadas prolongam os lados e ajudam quando o canto est\u00e1 escondido atr\u00e1s de um objeto. As setas do teclado movem o ponto selecionado (com Shift, mais r\u00e1pido). Quando estiver certo, clique em "Confirmar ret\u00e2ngulo".';
+  if (photoSpace()) return 'Os quadros est\u00e3o centralizados no espa\u00e7o marcado. Arraste para ajustar; "Centralizar quadros" volta ao centro exato.';
   return 'Arraste os quadros na foto para posicionar. A altura inicial segue a regra de altura (centro a 160 cm ou a dist\u00e2ncia acima do m\u00f3vel).';
 }
 function attachPhotoEvents(cv){
