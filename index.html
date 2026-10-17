@@ -40,6 +40,7 @@ legend{font-family:var(--display);font-weight:700;font-size:.95rem;text-transfor
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 label{display:flex;flex-direction:column;gap:4px;font-size:.85rem;font-weight:600;min-width:0}
 label small{font-weight:400;color:var(--muted)}
+.row > label > input,.row > label > select{margin-top:auto}
 input[type=text],select{font:inherit;font-size:1rem;color:var(--ink);background:var(--field);border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:100%;min-width:0;font-variant-numeric:tabular-nums}
 input[type=color]{width:42px;height:38px;border:1px solid var(--line);border-radius:6px;background:var(--field);padding:2px;cursor:pointer}
 input:focus,select:focus,button:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
@@ -74,7 +75,14 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .segb{font:inherit;font-weight:600;border:0;border-radius:6px;padding:8px 10px;background:transparent;color:var(--muted);cursor:pointer}
 .segb[aria-pressed="true"]{background:var(--panel);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
 .hint.step{color:var(--ink);background:var(--field);border-left:3px solid var(--accent);padding:8px 10px;border-radius:4px}
-#photoCanvas{display:block;width:100%;height:auto;min-width:0!important;border-radius:4px;user-select:none;touch-action:none}
+.photoView{position:relative;overflow:hidden;border-radius:4px;background:#2A2E30;touch-action:none;user-select:none;-webkit-user-select:none}
+#photoCanvas{position:absolute;left:0;top:0;display:block;max-width:none;min-width:0!important;transform-origin:0 0;user-select:none;touch-action:none}
+.zoomBar{position:absolute;right:10px;bottom:10px;display:flex;align-items:center;gap:2px;background:rgba(255,255,255,.94);border:1px solid #D5D0C4;border-radius:8px;padding:3px;box-shadow:0 2px 8px rgba(0,0,0,.18);z-index:2}
+.zoomBar button{font:inherit;font-weight:700;font-size:.95rem;min-width:34px;height:32px;border:0;border-radius:6px;background:transparent;color:#22262A;cursor:pointer;padding:0 8px}
+.zoomBar button:hover:not(:disabled){background:#EFEAE0}
+.zoomBar button:disabled{opacity:.35;cursor:default}
+.zoomBar .zv{min-width:52px;text-align:center;font-size:.85rem;font-weight:600;color:#3A4044;font-variant-numeric:tabular-nums}
+.zoomBar .zfit{font-size:.85rem;font-weight:600}
 .photoBar{display:flex;flex-direction:column;gap:8px;background:#F6F3EC;border:1px solid #E3DCCB;border-radius:6px;padding:10px 12px;margin-bottom:8px;color:#22262A}
 .photoBar p{margin:0;font-size:.9rem}
 .dragSeg{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:.85rem;margin-right:6px}
@@ -90,7 +98,7 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .colorEdit{display:grid;grid-template-columns:42px minmax(0,1fr) minmax(0,110px);gap:8px;align-items:center}
 .colorEdit input[type=text],.colorEdit select{padding:6px 8px;font-size:.9rem}
 .out{display:flex;flex-direction:column;gap:14px;min-width:0}
-@media (min-width:901px){.out{position:sticky;top:calc(env(safe-area-inset-top, 0px) + 12px)}}
+@media (min-width:901px){.out{position:sticky;top:calc(env(safe-area-inset-top, 0px) + 12px);max-height:calc(100vh - 24px);overflow-y:auto;overscroll-behavior:contain}}
 .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chip{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:.85rem;font-variant-numeric:tabular-nums}
@@ -101,8 +109,12 @@ input[type=range]{width:100%;accent-color:var(--accent)}
 .msg.err{background:var(--errbg);color:var(--errfg)}
 .msg ul{margin:0;padding-left:18px}
 .status{font-size:.88rem;color:var(--muted);min-height:1.2em}
-.sheet{background:#FFFFFF;border:1px solid var(--line);border-radius:6px;padding:8px;overflow-x:auto;box-shadow:0 1px 2px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.06)}
+.status:empty,#msgs:empty{display:none}
+.sheet{position:relative;background:#FFFFFF;border:1px solid var(--line);border-radius:6px;padding:8px;overflow-x:auto;box-shadow:0 1px 2px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.06)}
 .sheet > svg{display:block;width:100%;height:auto;min-width:520px}
+.sheet > svg.fit{min-width:0;margin:0 auto}
+.viewBtn{position:sticky;bottom:10px;display:block;margin:8px 0 0 auto;z-index:2;font:inherit;font-size:.82rem;font-weight:600;color:#22262A;background:rgba(255,255,255,.94);border:1px solid #D5D0C4;border-radius:6px;padding:6px 10px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.viewBtn:hover{background:#EFEAE0}
 .artList{display:flex;flex-wrap:wrap;gap:6px}
 .artList img{width:48px;height:48px;object-fit:cover;border-radius:4px;border:1px solid var(--line)}
 </style>
@@ -128,15 +140,6 @@ input[type=range]{width:100%;accent-color:var(--accent)}
         </div>
       </fieldset>
 
-      <fieldset>
-        <legend>Posi&#xe7;&#xe3;o dos quadros</legend>
-        <select id="ref" aria-label="Posi&#xe7;&#xe3;o dos quadros">
-          <option value="piso">Pela altura do piso</option>
-          <option value="espaco">Centralizar em um espa&#xe7;o</option>
-        </select>
-        <p class="hint" id="spaceHintFoto" hidden>Marque na foto os 4 cantos do espa&#xe7;o (nicho, painel, v&#xe3;o) e informe a largura e a altura reais dele. Os quadros ficam centralizados nesse ret&#xe2;ngulo.</p>
-      </fieldset>
-
       <fieldset id="fsFoto" hidden>
         <legend>Foto do cliente</legend>
         <div class="actions">
@@ -144,7 +147,8 @@ input[type=range]{width:100%;accent-color:var(--accent)}
           <input type="file" id="photoFile" accept="image/*" hidden>
           <button type="button" class="btn ghost sm" id="photoAdjust" hidden>Ajustar cantos</button>
           <button type="button" class="btn ghost sm" id="photoReset" hidden>Remarcar do zero</button>
-          <button type="button" class="btn ghost sm" id="photoCenter" hidden>Centralizar quadros</button>
+          <button type="button" class="btn ghost sm" id="photoCenter" hidden>Voltar &#xe0; posi&#xe7;&#xe3;o de refer&#xea;ncia</button>
+          <button type="button" class="btn ghost sm" id="photoUndo" hidden title="Ctrl+Z">Desfazer movimento</button>
         </div>
         <p class="hint step" id="photoStep"></p>
         <div class="row">
@@ -162,7 +166,6 @@ input[type=range]{width:100%;accent-color:var(--accent)}
           <label><span id="wallWTxt">Largura</span> <input type="text" id="wallW" inputmode="decimal"></label>
           <label><span id="wallHTxt">Altura</span> <input type="text" id="wallH" inputmode="decimal"></label>
         </div>
-        <p class="hint" id="spaceHint" hidden>Informe as medidas do espa&#xe7;o (nicho, painel, v&#xe3;o). Os quadros ficam centralizados nele, sem refer&#xea;ncia ao piso.</p>
         <div class="wallPresets" id="wallPresets"></div>
         <div class="actions">
           <label class="btn ghost sm" for="pickFile" style="flex-direction:row">Capturar cor de uma foto</label>
@@ -183,6 +186,34 @@ input[type=range]{width:100%;accent-color:var(--accent)}
             <button type="button" class="btn ghost sm" id="pickCancel">Cancelar</button>
           </div>
         </div>
+      </fieldset>
+
+      <fieldset id="fsRef">
+        <legend>Refer&#xea;ncia dos quadros</legend>
+        <label>Os quadros ficam
+          <select id="refSel">
+            <option value="livre">Em parede livre</option>
+            <option value="sofa">Acima de um sof&#xe1;</option>
+            <option value="cama">Acima de uma cama</option>
+            <option value="aparador">Acima de um aparador</option>
+            <option value="outro">Acima de outro m&#xf3;vel</option>
+            <option value="espaco">Centralizados em um espa&#xe7;o</option>
+          </select>
+        </label>
+        <label id="centerLabel">Centro dos quadros <small>cm do piso</small><input type="text" id="center" inputmode="decimal" placeholder="160"></label>
+        <div id="furnBox" class="stack" hidden>
+          <div class="row">
+            <label><span id="furnWLabel">Largura do m&#xf3;vel</span> <small>cm</small><input type="text" id="furnW" inputmode="decimal"></label>
+            <label><span id="furnHLabel">Altura</span> <small id="furnHHint">cm</small><input type="text" id="furnH" inputmode="decimal"></label>
+          </div>
+          <div class="row">
+            <label>Quadros acima do m&#xf3;vel <small>cm</small><input type="text" id="furnGap" inputmode="decimal"></label>
+            <label id="furnColorLabel">Cor do m&#xf3;vel <input type="color" id="furnColor"></label>
+          </div>
+          <label class="check" id="nsLabel"><input type="checkbox" id="nightstands"> Criados-mudos com abajur</label>
+        </div>
+        <p class="hint" id="spaceHint" hidden>Os campos de largura e altura acima passam a ser as medidas do espa&#xe7;o (nicho, painel, v&#xe3;o). Os quadros ficam centralizados nele, sem refer&#xea;ncia ao piso.</p>
+        <p class="hint" id="spaceHintFoto" hidden>Marque na foto os 4 cantos do espa&#xe7;o (nicho, painel, v&#xe3;o) e informe a largura e a altura reais dele. Os quadros ficam centralizados nesse ret&#xe2;ngulo.</p>
       </fieldset>
 
       <fieldset>
@@ -234,34 +265,13 @@ input[type=range]{width:100%;accent-color:var(--accent)}
         <p class="hint" id="artHint">Sem imagem, a pr&#xe9;via usa uma arte de exemplo.</p>
       </fieldset>
 
-      <fieldset id="fsMovel">
-        <legend>M&#xf3;vel</legend>
-        <label>Embaixo dos quadros
-          <select id="furn">
-            <option value="none">Nenhum (parede livre)</option>
-            <option value="sofa">Sof&#xe1;</option>
-            <option value="cama">Cama</option>
-            <option value="aparador">Aparador</option>
-            <option value="outro">Outro m&#xf3;vel</option>
-          </select>
-        </label>
-        <div id="furnBox" class="stack" hidden>
-          <div class="row">
-            <label>Largura <small>cm</small><input type="text" id="furnW" inputmode="decimal"></label>
-            <label><span id="furnHLabel">Altura</span> <small id="furnHHint">cm</small><input type="text" id="furnH" inputmode="decimal"></label>
-          </div>
-          <div class="row">
-            <label>Quadros acima do m&#xf3;vel <small>cm</small><input type="text" id="furnGap" inputmode="decimal"></label>
-            <label id="furnColorLabel">Cor do m&#xf3;vel <input type="color" id="furnColor"></label>
-          </div>
-          <label class="check" id="nsLabel"><input type="checkbox" id="nightstands"> Criados-mudos com abajur</label>
-        </div>
-      </fieldset>
-
       <fieldset id="fsEscala">
-        <legend>Escala</legend>
+        <legend>Apresenta&#xe7;&#xe3;o</legend>
         <label class="check" id="personLabel"><input type="checkbox" id="person"> Silhueta de mulher como refer&#xea;ncia</label>
         <label id="personHLabel">Altura da silhueta <small>cm</small><input type="text" id="personH" inputmode="decimal" placeholder="165"></label>
+        <label id="personSideLabel">Silhueta do lado
+          <select id="personSide"><option value="esq">Esquerdo</option><option value="dir">Direito</option></select>
+        </label>
         <label class="check"><input type="checkbox" id="showDims"> Mostrar medidas na pr&#xe9;via</label>
       </fieldset>
 
@@ -272,17 +282,11 @@ input[type=range]{width:100%;accent-color:var(--accent)}
             <label>Deslocar m&#xf3;vel <small>cm (+ direita)</small><input type="text" id="furnShift" inputmode="decimal"></label>
             <label>Deslocar quadros <small>cm (+ direita)</small><input type="text" id="setShift" inputmode="decimal"></label>
           </div>
-          <div class="row">
-            <label>Centro na parede livre <small>cm do piso</small><input type="text" id="center" inputmode="decimal"></label>
-            <label>Pessoa do lado
-              <select id="personSide"><option value="esq">Esquerdo</option><option value="dir">Direito</option></select>
-            </label>
-          </div>
         </div>
       </details>
 
       <details id="colorsBox">
-        <summary>Cores de moldura</summary>
+        <summary>Configurar cores de moldura</summary>
         <div class="stack" id="colorEditor"></div>
         <div class="actions" style="margin-top:10px">
           <button type="button" class="btn ghost sm" id="colorsReset">Restaurar cores padr&#xe3;o</button>
@@ -420,7 +424,7 @@ function compute(s){
   let person = null;
   if (s.person && !space){
     const ph = clamp(num(s.personH, 165) || 165, 120, 200);
-    const half = 22 * ph / 165, margin = 8;
+    const half = SIL.w / SIL.h * ph / 2, margin = 8;
     const blocks = [];
     if (fur){ const ext = fur.type === 'cama' ? 4 + (fur.ns ? 60 : 0) : 0; blocks.push([fur.x - ext, fur.x + fur.w + ext]); }
     frames.forEach(f => { if (f.top - f.A < ph + 6) blocks.push([f.x0, f.x0 + f.L]); });
@@ -533,33 +537,12 @@ function smoothClosed(pts){
   return d + ' Z';
 }
 
-// mulher em p\u00e9, vista frontal; medidas em cm para 1,65 m, escaladas pela altura informada
-const WOMAN = {
-  torso: [[3.3,139],[8,137.6],[13.6,136.2],[17,133.6],[16.4,128],[15.3,122],[14.4,115],[12.4,105.5],[13.6,99],[16.6,91],[18.6,80],[20.6,68],[22.4,57.5]],
-  arm: [[17.4,133.4],[19.4,125],[20.1,114],[20.6,103],[21.1,93],[21.2,85],[21.7,80.5],[21.2,75.2],[19.8,73.6],[18.7,76.5],[18.7,84.5],[18.0,93],[17.3,103],[16.6,113],[15.6,123]],
-  leg: [[1.6,58],[9.4,58],[9.0,49],[7.7,39],[7.5,31],[6.5,17],[5.7,9.5],[3.4,9.5],[3.0,17],[2.5,30],[2.2,40],[1.8,50]],
-  shoe: [[2.9,10],[6.1,10],[7.1,5],[8.4,1.2],[2.3,0.6],[2.5,5]],
-  hair: [[0,166.4],[6.6,165.2],[10.1,160.6],[11.1,152],[10.8,144.5],[11.5,138.5],[12.8,131.6],[9.8,130.9],[7.4,134.5],[6.2,140]],
-  fringe: [[-8.1,154],[-7.4,160.4],[-3.4,165],[0,166.4],[4.4,165.2],[8.1,160.2],[8.3,153.6],[5.6,158.6],[1.2,160.8],[-4.2,158.8]]
-};
+// silhueta de refer\u00eancia (recorte justo: topo da cabe\u00e7a em y=0 e sola do p\u00e9 na base)
+const SIL = { w: 949.65, h: 3327.84, d: 'M727.43 1345.94c-0.45,-36.23 1.83,-87.17 -3.18,-116.91l-11.94 -48.31c-15.23,-93.32 6.49,-88.16 21.15,-142.54 8.09,-30.02 7.18,-66.62 10.14,-80.17 3.82,-17.49 5.55,-17.03 10.77,-22.18 1.04,2.64 3.85,10.63 4.99,12.81l16 27.09c6.35,13.19 32.04,90.73 37.71,111.08 5.56,19.91 -9.81,99.1 -14.37,119.61 -2.57,11.6 -5.33,15.63 -8.11,26.44 -2.9,11.26 -2.6,19.63 -5,29.81l-37.31 66.35c-15.64,25.56 1.84,9.26 -20.86,16.94zm-532.78 -154.83c-6.53,-60.98 -58.51,-74.87 -39.29,-136.49l29.76 -61.26c20.99,-31.92 17.57,-34.43 29.06,-57.9 25.35,-1.05 26.32,7.38 41.01,20.95 9.06,8.38 6.82,6.4 14.98,15.72 5.85,6.67 8.05,7.91 14.15,13.96l0.1 108.75c-43.13,31.38 -40.34,62.13 -66.43,105.35 -9.4,-0.84 -16.94,-4.64 -23.34,-9.06zm206.95 1520.89l39.56 182.41c28.78,100.23 17.33,55.72 4.21,136.86 -11.74,72.6 -19.01,6.95 -13.34,142.69 0.84,20.21 1.8,35.57 4.42,52.1 8.7,54.71 18.68,54.66 60.23,86.04 21.97,24.65 57.26,16.19 78.93,2.86l5.67 -3.44c22.04,-10.83 56.68,-14.79 58.79,-42.7l-19.97 -116.24c-11.45,-128.95 -29.18,-115.24 5.19,-239.21 26.94,-99.11 47.68,-193.99 71.88,-293.39 11.34,-46.56 31.48,-109.76 25.8,-153.44 -8.07,-61.98 -20.17,-91.82 -18.34,-171.15 1.17,-50.48 16.07,-311.84 25.07,-343.15 7.72,-26.87 63.5,-169.49 69.58,-205.29 3.24,-19.06 13.88,-68.5 15.13,-81.98 4.99,-53.83 -6.29,-130.88 0.72,-182.66l78.45 -197.27c7.9,-20.71 19.58,-45.99 26.39,-65.37l26.1 -65.72c11.06,-31.72 -6.86,-57.63 -8.13,-88.53 -3.93,-20.58 -11.61,-36.18 -14.56,-54.38 -5.25,-32.34 -1.38,-37.4 -11,-64.11l-77.12 -341.09c-6.17,-24.14 -11.92,-65.1 -25.6,-85.91 -8.69,-13.22 -11.52,-11.41 -25.8,-17.97l-8.62 -4.43c-18.83,-9.66 -106.48,-49.1 -115.19,-58.79l-33.54 -153.5c-1.76,-12.84 -0.16,-24.23 -2.86,-37.2l-12.64 -65.72c-10.41,-84.41 -39.96,-112.6 -100.05,-159.86 -54.05,-40.17 -117.93,-20.05 -168.83,10.65 -67.37,41.28 -65.19,99.24 -92.24,176.34 -43.41,152.29 -41.21,103 -41.49,263.34 -0.04,22.54 -1.47,50.99 1.77,72.77 4.1,27.63 10.48,32.13 5.98,69.81 -39.47,1.21 -48.31,-2.36 -80.1,59.7 -18.84,36.78 -35.89,25.57 -45.71,96.31l-31.5 143.86c-4.87,15.26 -6.49,10.61 -10.5,24.21l-18.36 55.5c-27.14,71.86 -40.55,81.85 -20.02,133.06 13.52,33.73 -0.97,28.67 39.99,68.48 12.5,12.15 24.75,21.08 36.31,33.31l96.36 81.69c11.47,8.15 15.39,6.91 24.75,13.88 1.88,25.8 -16.98,148.06 -24.03,175.53l-8.14 56.88c-17.01,96.35 6.38,121.73 17.52,193.37 8.66,55.69 39.71,158.82 56.64,215.55 21.69,100.96 53.97,233.5 64.82,336.49 5.48,52.08 15.73,153.22 28.56,197.89 18.71,65.13 47.15,147.58 58.86,210.92z' };
 function personSVG(px, Y, wallLight, hcm){
-  const s = hcm / 165;
-  const P = (x, h) => [px + x * s, Y(h * s)];
-  const mirrorLoop = pts => [...pts.map(p => P(p[0], p[1])), ...pts.slice().reverse().map(p => P(-p[0], p[1]))];
-  const body = wallLight ? '#5E666A' : '#24292B';
-  const hair = shade(body, -0.35);
-  let o = `<g opacity="0.85">`;
-  o += `<path d="${smoothClosed(mirrorLoop(WOMAN.hair))}" fill="${hair}"/>`;
-  [1, -1].forEach(sg => {
-    o += `<path d="${smoothClosed(WOMAN.arm.map(p => P(sg * p[0], p[1])))}" fill="${body}"/>`;
-    o += `<path d="${smoothClosed(WOMAN.leg.map(p => P(sg * p[0], p[1])))}" fill="${body}"/>`;
-    o += `<path d="${smoothClosed(WOMAN.shoe.map(p => P(sg * p[0], p[1])))}" fill="${hair}"/>`;
-  });
-  o += `<path d="${smoothClosed(mirrorLoop(WOMAN.torso))}" fill="${body}"/>`;
-  o += `<path d="M${px - 3.4 * s} ${Y(146 * s)} L${px + 3.4 * s} ${Y(146 * s)} L${px + 4.2 * s} ${Y(136.5 * s)} L${px - 4.2 * s} ${Y(136.5 * s)} Z" fill="${body}"/>`;
-  o += `<ellipse cx="${px}" cy="${Y(153.5 * s)}" rx="${7.7 * s}" ry="${10.4 * s}" fill="${body}"/>`;
-  o += `<path d="${smoothClosed(WOMAN.fringe.map(p => P(p[0], p[1])))}" fill="${hair}"/>`;
-  o += `</g>`;
+  const sc = hcm / SIL.h, w = SIL.w * sc;
+  const body = wallLight ? '#5E666A' : '#D5D9D7'; // parede clara: silhueta cinza escura; parede escura: cinza claro
+  let o = `<path d="${SIL.d}" fill="${body}" fill-rule="evenodd" stroke="${shade(body, wallLight ? -0.35 : -0.45)}" stroke-width="${0.3 / sc}" stroke-linejoin="round" opacity="0.88" transform="translate(${px - w / 2} ${Y(hcm)}) scale(${sc})"/>`;
   o += `<text x="${px}" y="${Y(hcm + 4)}" text-anchor="middle" font-size="${4.2}" fill="${body}">${(hcm / 100).toFixed(2).replace('.', ',')} m</text>`;
   return o;
 }
@@ -587,17 +570,6 @@ function furnitureSVG(F, Y, G){
       o += R(cx0, seatTop - 4, cw - 1.6, ch, 7, V(shade(c, 0.08), shade(c, -0.10)), `stroke="${shade(c, -0.2)}" stroke-width="0.3"`);
       o += `<path d="M${cx0 + 4} ${Y(h - 4.5)} Q${cx0 + cw / 2} ${Y(h - 3)} ${cx0 + cw - 5.6} ${Y(h - 4.5)}" fill="none" stroke="${shade(c, 0.3)}" stroke-width="0.5" opacity="0.6"/>`;
     }
-    // almofadas decorativas
-    const pillow = (pcx, size, rot, fill) => {
-      const s2 = size / 2, b = seatTop - 2, cy = Y(b + s2), k = 3.2;
-      const p = [[pcx - s2, cy - s2], [pcx + s2, cy - s2], [pcx + s2, cy + s2], [pcx - s2, cy + s2]];
-      const q = 2.2;
-      o += `<path d="M${p[0][0] + 1.5} ${p[0][1] + 1.5} Q${pcx} ${cy - s2 - q} ${p[1][0] - 1.5} ${p[1][1] + 1.5} Q${pcx + s2 + q} ${cy} ${p[2][0] - 1.5} ${p[2][1] - 1.5} Q${pcx} ${cy + s2 + q} ${p[3][0] + 1.5} ${p[3][1] - 1.5} Q${pcx - s2 - q} ${cy} ${p[0][0] + 1.5} ${p[0][1] + 1.5} Z" fill="${fill}" stroke="#000" stroke-opacity="0.12" stroke-width="0.3" transform="rotate(${rot} ${pcx} ${cy})"/>`;
-      o += `<path d="M${pcx - s2 * 0.5} ${cy - s2 * 0.2} Q${pcx} ${cy + s2 * 0.15} ${pcx + s2 * 0.45} ${cy - s2 * 0.3}" fill="none" stroke="#000" stroke-opacity="0.12" stroke-width="0.4" transform="rotate(${rot} ${pcx} ${cy})"/>`;
-    };
-    const ps = clamp(cw * 0.62, 34, 46);
-    pillow(x + armW + ps * 0.62, ps, -4, V(shade(c, -0.28), shade(c, -0.42)));
-    pillow(x + w - armW - ps * 0.62, ps, 4, V('#EFEAE0', '#D9D2C4'));
     // base e assento
     o += R(x + armW - 2, legH, inner + 4, 14, 3, V(shade(c, -0.08), shade(c, -0.2)));
     for (let i = 0; i < nC; i++){
@@ -868,7 +840,7 @@ let colors = JSON.parse(JSON.stringify(DEFAULT_COLORS));
 let images = [];
 let imgPos = {};
 let current = null;
-const FIELDS = ['cliente','ambiente','ref','wallW','wallH','qty','gap','size','artMode','furn','furnW','furnH','furnGap','furnColor','furnShift','setShift','center','personSide','personH','refW','refH','refBase','photoLight','photoWarm'];
+const FIELDS = ['cliente','ambiente','wallW','wallH','qty','gap','size','artMode','furnW','furnH','furnGap','furnColor','furnShift','setShift','center','personSide','personH','refW','refH','refBase','photoLight','photoWarm'];
 const CHECKS = ['diff','compare','nightstands','person','showDims'];
 
 function load(){
@@ -878,7 +850,9 @@ function load(){
 function persist(){ try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e){} }
 function persistColors(){ try { localStorage.setItem(KEYC, JSON.stringify(colors)); } catch(e){} }
 
+function refSelValue(){ return state.ref === 'espaco' ? 'espaco' : FURN[state.furn] ? state.furn : 'livre'; }
 function fillForm(){
+  $('refSel').value = refSelValue();
   FIELDS.forEach(k => { $(k).value = state[k] ?? ''; });
   CHECKS.forEach(k => { $(k).checked = !!state[k]; });
   buildSizes(); updateUI(); buildSwatches(); buildWalls(); buildColorEditor();
@@ -890,7 +864,7 @@ function readForm(){
 function updateUI(){
   const t = state.furn;
   $('furnBox').hidden = !FURN[t];
-  if (FURN[t]){ $('furnHLabel').textContent = FURN[t].hLabel; $('furnHHint').textContent = FURN[t].hHint; }
+  if (FURN[t]){ $('furnHLabel').textContent = FURN[t].hLabel; $('furnHHint').textContent = FURN[t].hHint; $('furnWLabel').textContent = `Largura ${FURN[t].art === 'a' ? 'da' : 'do'} ${FURN[t].name.toLowerCase()}`; }
   $('nsLabel').hidden = t !== 'cama';
   $('personHLabel').hidden = !state.person;
   const foto = state.mode === 'foto';
@@ -901,13 +875,13 @@ function updateUI(){
   $('wallWTxt').textContent = esp ? 'Largura do espa\u00e7o' : 'Largura';
   $('wallHTxt').textContent = esp ? 'Altura do espa\u00e7o' : 'Altura';
   $('spaceHint').hidden = !esp;
-  $('fsMovel').hidden = esp;
   $('personLabel').hidden = esp;
   if (esp) $('personHLabel').hidden = true;
+  $('centerLabel').hidden = state.ref === 'espaco' || !!FURN[state.furn];
+  $('personSideLabel').hidden = !state.person || esp;
   const espF = state.ref === 'espaco' && foto;
   $('spaceHintFoto').hidden = !espF;
   $('refBaseLabel').hidden = espF;
-  if (espF) $('fsMovel').hidden = true;
   if (foto) $('nsLabel').hidden = true;
   $('modeIl').setAttribute('aria-pressed', String(!foto)); $('modeFoto').setAttribute('aria-pressed', String(foto));
   $('compareHint').hidden = !state.compare;
@@ -1011,6 +985,12 @@ function chipsHTML(R){
     const cMin = Math.min(...R.frames.map(f => f.center + dy));
     chips.push(`<span class="chip">Centro a <b>${fmt(cMin)} cm</b> do piso</span>`);
   }
+  if (state.mode === 'foto' && photo.H && photoMoved()){
+    const dx = Number(state.photoDX) || 0, dy = Number(state.photoDY) || 0, parts = [];
+    if (Math.abs(dx) > 0.25) parts.push(`${fmt(Math.abs(dx))} cm \u00e0 ${dx > 0 ? 'direita' : 'esquerda'}`);
+    if (Math.abs(dy) > 0.25) parts.push(`${fmt(Math.abs(dy))} cm ${dy > 0 ? 'acima' : 'abaixo'}`);
+    chips.push(`<span class="chip alert">Posi\u00e7\u00e3o manual: <b>${parts.join(', ')}</b> da refer\u00eancia</span>`);
+  }
   return chips.join('');
 }
 function render(){
@@ -1029,7 +1009,8 @@ function render(){
   if (R.warnings.length) msgs.innerHTML = `<div class="msg warn"><ul>${R.warnings.map(e => `<li>${esc(e)}</li>`).join('')}</ul></div>`;
   $('btnPng').disabled = $('btnPdf').disabled = false;
   $('chips').innerHTML = chipsHTML(R);
-  $('sheet').innerHTML = composite(R, meta(), selectedColors(), opts(true)).svg;
+  $('sheet').innerHTML = composite(R, meta(), selectedColors(), opts(true)).svg + '<button type="button" class="viewBtn" id="viewBtn" hidden></button>';
+  fitSheet();
   buildFraming(R);
 }
 
@@ -1284,6 +1265,21 @@ function calibrate(){
   photo.H = solveHomography([[0, 0], [RW, 0], [RW, RH], [0, RH]], [c.BL, c.BR, c.TR, c.TL]);
   photo.Hinv = photo.H && hInverse(photo.H);
 }
+// ajuste manual da posi\u00e7\u00e3o dos quadros na foto: desvio da refer\u00eancia e hist\u00f3rico para desfazer
+const moveHist = [];
+function photoMoved(){ return Math.abs(Number(state.photoDX) || 0) > 0.25 || Math.abs(Number(state.photoDY) || 0) > 0.25; }
+function pushMoveHist(dx, dy){ moveHist.push([dx, dy]); if (moveHist.length > 50) moveHist.shift(); }
+function resetToRef(){
+  if (!photoMoved()) return;
+  pushMoveHist(Number(state.photoDX) || 0, Number(state.photoDY) || 0);
+  state.photoDX = 0; state.photoDY = 0; persist(); renderFotoMode();
+  setStatus('Quadros de volta \u00e0 posi\u00e7\u00e3o de refer\u00eancia. Use "Desfazer movimento" para recuperar o ajuste manual.');
+}
+function undoMove(){
+  const h = moveHist.pop(); if (!h) return;
+  state.photoDX = h[0]; state.photoDY = h[1]; persist(); renderFotoMode();
+  setStatus('Movimento desfeito.');
+}
 function photoSpace(){ return state.ref === 'espaco' && num(state.refW) > 0 && num(state.refH) > 0; }
 function photoState(){
   const sp = photoSpace();
@@ -1438,14 +1434,20 @@ function drawPhotoOverlay(ctx, cv){
     ctx.strokeStyle = '#FFD54A'; ctx.lineWidth = 2 * k; ctx.stroke();
     // medidas informadas nos lados
     const RW = num(state.refW), RH = num(state.refH);
-    const label = (t, x, y) => {
+    // medidas sempre do lado de dentro do ret\u00e2ngulo: partem do meio do lado e andam em dire\u00e7\u00e3o ao centro
+    const ctr = [(c.TL[0] + c.TR[0] + c.BR[0] + c.BL[0]) / 4, (c.TL[1] + c.TR[1] + c.BR[1] + c.BL[1]) / 4];
+    const label = (t, a, b2) => {
       ctx.font = `600 ${Math.round(14 * k)}px Arial, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      const w = ctx.measureText(t).width + 12 * k;
-      ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(x - w / 2, y - 11 * k, w, 22 * k);
+      const w = ctx.measureText(t).width + 12 * k, h = 22 * k;
+      const mx = (a[0] + b2[0]) / 2, my = (a[1] + b2[1]) / 2;
+      let nx = ctr[0] - mx, ny = ctr[1] - my; const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+      const dist = Math.abs(nx) * (w / 2) + Math.abs(ny) * (h / 2) + 8 * k;
+      const x = mx + nx * dist, y = my + ny * dist;
+      ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(x - w / 2, y - h / 2, w, h);
       ctx.fillStyle = '#FFD54A'; ctx.fillText(t, x, y);
     };
-    label(RW > 0 ? `${fmt(RW)} cm` : 'largura ?', (c.TL[0] + c.TR[0]) / 2, (c.TL[1] + c.TR[1]) / 2 - 16 * k);
-    label(RH > 0 ? `${fmt(RH)} cm` : 'altura ?', (c.TL[0] + c.BL[0]) / 2 + 34 * k, (c.TL[1] + c.BL[1]) / 2);
+    label(RW > 0 ? `${fmt(RW)} cm` : 'largura ?', c.TL, c.TR);
+    label(RH > 0 ? `${fmt(RH)} cm` : 'altura ?', c.TL, c.BL);
   } else if (pts.length >= 2){
     ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]));
     ctx.setLineDash([8 * k, 6 * k]);
@@ -1460,22 +1462,6 @@ function drawPhotoOverlay(ctx, cv){
     ctx.strokeStyle = '#000'; ctx.lineWidth = 3 * k; ctx.stroke(); ctx.strokeStyle = sel ? '#FF3B30' : '#FFD54A'; ctx.lineWidth = 1.8 * k; ctx.stroke();
     ctx.beginPath(); ctx.moveTo(p[0] - 5 * k, p[1]); ctx.lineTo(p[0] + 5 * k, p[1]); ctx.moveTo(p[0], p[1] - 5 * k); ctx.lineTo(p[0], p[1] + 5 * k); ctx.strokeStyle = '#000'; ctx.lineWidth = 1 * k; ctx.stroke();
   });
-  // lupa
-  const lp = photo.hover || (photo.sel >= 0 ? photo.pts[photo.sel] : null);
-  if (lp){
-    const [hx, hy] = lp, R = 75 * k, Z = 4;
-    const cx = hx < photo.w / 2 ? photo.w - R - 16 * k : R + 16 * k, cy = R + 16 * k;
-    ctx.save();
-    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
-    ctx.fillStyle = '#000'; ctx.fillRect(cx - R, cy - R, 2 * R, 2 * R);
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(photo.cv, hx - R / Z, hy - R / Z, 2 * R / Z, 2 * R / Z, cx - R, cy - R, 2 * R, 2 * R);
-    ctx.imageSmoothingEnabled = true;
-    ctx.strokeStyle = '#FF3B30'; ctx.lineWidth = 1.5 * k;
-    ctx.beginPath(); ctx.moveTo(cx - R, cy); ctx.lineTo(cx - 6 * k, cy); ctx.moveTo(cx + 6 * k, cy); ctx.lineTo(cx + R, cy); ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy - 6 * k); ctx.moveTo(cx, cy + 6 * k); ctx.lineTo(cx, cy + R); ctx.stroke();
-    ctx.restore();
-    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.strokeStyle = '#FFF'; ctx.lineWidth = 3 * k; ctx.stroke(); ctx.strokeStyle = '#000'; ctx.lineWidth = 1 * k; ctx.stroke();
-  }
 }
 function photoRefresh(){
   const cv = $('photoCanvas'); if (!cv) return;
@@ -1484,30 +1470,131 @@ function photoRefresh(){
 }
 function photoStepText(){
   if (!photo.img) return 'Carregue uma foto da parede tirada de frente, com a lente normal do celular (1x).';
-  if (photo.pts.length < 4 && state.ref === 'espaco') return `Clique nos 4 cantos do espa\u00e7o onde os quadros v\u00e3o ficar (nicho, painel, v\u00e3o). Faltam ${4 - photo.pts.length}. A lupa no canto da foto ajuda na precis\u00e3o.`;
-  if (photo.pts.length < 4) return `Clique nos 4 cantos de um ret\u00e2ngulo de medida conhecida na parede: a parede inteira, uma porta ou uma janela. Faltam ${4 - photo.pts.length}. A lupa no canto da foto ajuda na precis\u00e3o.`;
+  if (photo.pts.length < 4 && state.ref === 'espaco') return `Clique nos 4 cantos do espa\u00e7o onde os quadros v\u00e3o ficar (nicho, painel, v\u00e3o). Faltam ${4 - photo.pts.length}. Para mais precis\u00e3o, use o zoom (roda do mouse, pin\u00e7a ou os bot\u00f5es no canto da foto) e arraste para mover a imagem.`;
+  if (photo.pts.length < 4) return `Clique nos 4 cantos de um ret\u00e2ngulo de medida conhecida na parede: a parede inteira, uma porta ou uma janela. Faltam ${4 - photo.pts.length}. Para mais precis\u00e3o, use o zoom (roda do mouse, pin\u00e7a ou os bot\u00f5es no canto da foto) e arraste para mover a imagem.`;
   if (!(num(state.refW) > 0 && num(state.refH) > 0)) return (photo.editing ? 'Confira o ret\u00e2ngulo e ajuste os pontos se precisar. ' : '') + 'Informe a largura e a altura reais desse ret\u00e2ngulo, em cent\u00edmetros.';
   if (!photo.H && !photo.editing) return 'Os 4 cantos n\u00e3o formam um ret\u00e2ngulo v\u00e1lido. Ajuste os cantos ou clique em "Remarcar do zero".';
   if (photo.editing) return 'Confira o ret\u00e2ngulo. Arraste os pontos at\u00e9 os cantos exatos; as linhas tracejadas prolongam os lados e ajudam quando o canto est\u00e1 escondido atr\u00e1s de um objeto. As setas do teclado movem o ponto selecionado (com Shift, mais r\u00e1pido). Quando estiver certo, clique em "Confirmar ret\u00e2ngulo".';
-  if (photoSpace()) return 'Os quadros est\u00e3o centralizados no espa\u00e7o marcado. Arraste para ajustar; "Centralizar quadros" volta ao centro exato.';
-  return 'Arraste os quadros na foto para posicionar. A altura inicial segue a regra de altura (centro a 160 cm ou a dist\u00e2ncia acima do m\u00f3vel).';
+  if (photoSpace()) return 'Os quadros est\u00e3o centralizados no espa\u00e7o marcado. Arraste para ajustar; "Voltar \u00e0 posi\u00e7\u00e3o de refer\u00eancia" desfaz qualquer ajuste manual.';
+  return 'Arraste os quadros na foto para posicionar. A altura inicial segue a regra de altura (centro a 160 cm ou a dist\u00e2ncia acima do m\u00f3vel); "Voltar \u00e0 posi\u00e7\u00e3o de refer\u00eancia" desfaz qualquer ajuste manual.';
+}
+// ----- visualização da foto: encaixe na tela, zoom e navegação
+const pv = { z: 1, tx: 0, ty: 0, fit: 1, ox0: 0, vw: 0, vh: 0, raf: 0 };
+const ZMAX = 8;
+function layoutPhotoView(){
+  const view = $('photoView'), cv = $('photoCanvas');
+  if (!view || !cv || !photo.w) return;
+  const out = document.querySelector('.out');
+  const wide = window.matchMedia('(min-width:901px)').matches;
+  const vw = view.clientWidth || 600;
+  let ha;
+  if (wide){
+    // usa a posi\u00e7\u00e3o real da foto na janela agora (com o cabe\u00e7alho vis\u00edvel ou n\u00e3o)
+    const top = Math.max(view.getBoundingClientRect().top + out.scrollTop, 12 + view.getBoundingClientRect().top - out.getBoundingClientRect().top + out.scrollTop);
+    ha = window.innerHeight - top - 16;
+  } else ha = window.innerHeight * 0.78;
+  ha = Math.max(280, ha);
+  const fit = Math.min(vw / photo.w, ha / photo.h);
+  const cw = photo.w * fit, ch = photo.h * fit;
+  const prevFit = pv.fit;
+  pv.fit = fit; pv.vw = vw; pv.vh = ch; pv.ox0 = (vw - cw) / 2;
+  if (prevFit && prevFit !== fit){ pv.tx *= fit / prevFit; pv.ty *= fit / prevFit; }
+  view.style.height = ch + 'px';
+  cv.style.width = cw + 'px'; cv.style.height = ch + 'px';
+  clampPan(); applyView();
+}
+function clampPan(){
+  const dw = photo.w * pv.fit * pv.z, dh = photo.h * pv.fit * pv.z;
+  if (dw <= pv.vw) pv.tx = (pv.vw - dw) / 2 - pv.ox0;
+  else pv.tx = clamp(pv.tx, pv.vw - dw - pv.ox0, -pv.ox0);
+  if (dh <= pv.vh) pv.ty = (pv.vh - dh) / 2;
+  else pv.ty = clamp(pv.ty, pv.vh - dh, 0);
+}
+function applyView(){
+  const cv = $('photoCanvas'); if (!cv) return;
+  cv.style.transform = `translate(${pv.ox0 + pv.tx}px, ${pv.ty}px) scale(${pv.z})`;
+  const pct = $('zoomPct'); if (pct) pct.textContent = Math.round(pv.z * 100) + '%';
+  const bar = $('zoomBar');
+  if (bar){
+    bar.querySelector('[data-zoom="out"]').disabled = pv.z <= 1.001;
+    bar.querySelector('[data-zoom="fit"]').disabled = pv.z <= 1.001;
+    bar.querySelector('[data-zoom="in"]').disabled = pv.z >= ZMAX - 0.001;
+  }
+}
+function scheduleRefresh(){
+  if (pv.raf) return;
+  pv.raf = requestAnimationFrame(() => { pv.raf = 0; photoRefresh(); });
+}
+function zoomAt(vx, vy, nz){
+  nz = clamp(nz, 1, ZMAX);
+  const s0 = pv.fit * pv.z, s1 = pv.fit * nz;
+  const ix = (vx - pv.ox0 - pv.tx) / s0, iy = (vy - pv.ty) / s0;
+  pv.z = nz;
+  pv.tx = vx - pv.ox0 - ix * s1; pv.ty = vy - iy * s1;
+  clampPan(); applyView(); scheduleRefresh();
+}
+function zoomFit(){ pv.z = 1; pv.tx = 0; pv.ty = 0; clampPan(); applyView(); scheduleRefresh(); }
+function visibleRect(){
+  // área da foto (em pixels da foto) que está visível na tela
+  const sc = pv.fit * pv.z;
+  if (!(sc > 0) || !pv.vw) return { x0: 0, y0: 0, x1: photo.w, y1: photo.h };
+  return {
+    x0: clamp(-(pv.ox0 + pv.tx) / sc, 0, photo.w), x1: clamp((pv.vw - pv.ox0 - pv.tx) / sc, 0, photo.w),
+    y0: clamp(-pv.ty / sc, 0, photo.h), y1: clamp((pv.vh - pv.ty) / sc, 0, photo.h)
+  };
 }
 function attachPhotoEvents(cv){
+  const view = $('photoView');
   const toP = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * cv.width, (e.clientY - r.top) / r.height * cv.height]; };
+  const toV = (x, y) => { const r = view.getBoundingClientRect(); return [x - r.left, y - r.top]; };
   const kpx = () => cv.width / cv.getBoundingClientRect().width;
-  cv.addEventListener('pointerdown', e => {
-    const p = toP(e), k = kpx();
+  const inImg = p => p[0] >= 0 && p[1] >= 0 && p[0] <= photo.w && p[1] <= photo.h;
+  const ptrs = new Map();
+  let pend = null, pinch = null;
+
+  view.querySelector('#zoomBar').addEventListener('click', e => {
+    const b = e.target.closest('[data-zoom]'); if (!b) return;
+    const a = b.dataset.zoom;
+    if (a === 'fit') zoomFit();
+    else zoomAt(pv.vw / 2, pv.vh / 2, pv.z * (a === 'in' ? 1.5 : 1 / 1.5));
+  });
+  view.addEventListener('wheel', e => {
+    if (!photo.img) return;
+    e.preventDefault();
+    const [vx, vy] = toV(e.clientX, e.clientY);
+    const d = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+    zoomAt(vx, vy, pv.z * Math.exp(-d * (e.ctrlKey ? 0.01 : 0.0018)));
+  }, { passive: false });
+
+  const startPinch = () => {
+    const [a, b] = [...ptrs.values()];
+    const mid = toV((a.x + b.x) / 2, (a.y + b.y) / 2), sc = pv.fit * pv.z;
+    pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, z0: pv.z, ix: (mid[0] - pv.ox0 - pv.tx) / sc, iy: (mid[1] - pv.ty) / sc };
+    // cancela o gesto de um dedo sem aplicar nada
+    pend = null; photo.dragPt = -1; photo.dragSet = null; photo.dragImg = null; photo.hover = null;
+  };
+
+  view.addEventListener('pointerdown', e => {
+    if (e.target.closest('#zoomBar')) return;
+    if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 1) return;
+    try { view.setPointerCapture(e.pointerId); } catch(err){}
+    ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    e.preventDefault();
     try { cv.focus({ preventScroll: true }); } catch(err){}
+    if (ptrs.size === 2){ startPinch(); return; }
+    if (ptrs.size > 2) return;
+    const p = toP(e), k = kpx();
+    const base = { sx: e.clientX, sy: e.clientY, tx0: pv.tx, ty0: pv.ty, p, pan: false, add: false };
+    if (e.button === 1){ pend = { ...base, pan: true }; view.style.cursor = 'grabbing'; return; }
     const calib = photo.pts.length < 4 || photo.editing;
     if (calib){
       const i = photo.pts.findIndex(q => Math.hypot(q[0] - p[0], q[1] - p[1]) < 14 * k);
-      if (i >= 0){ photo.dragPt = i; photo.sel = i; }
-      else if (photo.pts.length < 4){
-        photo.pts.push(p); photo.sel = photo.pts.length - 1;
-        if (photo.pts.length === 4){ photo.editing = true; calibrate(); }
-        renderFotoMode(); return;
-      } else return;
-    } else if (photo.Hinv && photo.quads.some(q => inPoly(p, q))){
+      if (i >= 0){ photo.dragPt = i; photo.sel = i; return; }
+      // clique rápido marca o ponto; arrastar move a foto
+      pend = { ...base, add: photo.pts.length < 4 && inImg(p) };
+      return;
+    }
+    if (photo.Hinv && photo.quads.some(q => inPoly(p, q))){
       const w = hApply(photo.Hinv, p[0], p[1]);
       const qi = photo.quads.findIndex(q => inPoly(p, q));
       if (photo.dragMode === 'img' && images.length){
@@ -1516,35 +1603,107 @@ function attachPhotoEvents(cv){
         photo.dragImg = { key, u: w[0], v: w[1], fx0: p0.fx === undefined ? 0.5 : p0.fx, fy0: p0.fy === undefined ? 0.5 : p0.fy, ox: ov.ox, oy: ov.oy };
         if ($('frTarget').querySelector(`option[value="${key}"]`)){ $('frTarget').value = key; }
       } else photo.dragSet = { u: w[0], v: w[1], dx: Number(state.photoDX) || 0, dy: Number(state.photoDY) || 0 };
-    } else return;
-    e.preventDefault();
-    try { cv.setPointerCapture(e.pointerId); } catch(err){}
+      return;
+    }
+    pend = base;
   });
-  cv.addEventListener('pointermove', e => {
+
+  view.addEventListener('pointermove', e => {
+    if (ptrs.has(e.pointerId)) ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch && ptrs.size >= 2){
+      const [a, b] = [...ptrs.values()];
+      const mid = toV((a.x + b.x) / 2, (a.y + b.y) / 2);
+      const nz = clamp(pinch.z0 * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d0, 1, ZMAX), s1 = pv.fit * nz;
+      pv.z = nz; pv.tx = mid[0] - pv.ox0 - pinch.ix * s1; pv.ty = mid[1] - pinch.iy * s1;
+      clampPan(); applyView(); scheduleRefresh();
+      return;
+    }
     const p = toP(e);
+    if (pend){
+      const dx = e.clientX - pend.sx, dy = e.clientY - pend.sy;
+      if (!pend.pan && Math.hypot(dx, dy) > 6) pend.pan = true;
+      if (pend.pan){
+        pv.tx = pend.tx0 + dx; pv.ty = pend.ty0 + dy;
+        clampPan(); applyView(); view.style.cursor = 'grabbing';
+        if (photo.hover){ photo.hover = null; scheduleRefresh(); }
+      }
+      return;
+    }
     const calib = photo.pts.length < 4 || photo.editing;
-    if (photo.dragPt >= 0){ photo.pts[photo.dragPt] = p; photo.hover = p; calibrate(); photoRefresh(); return; }
+    if (photo.dragPt >= 0){ photo.pts[photo.dragPt] = [clamp(p[0], 0, photo.w), clamp(p[1], 0, photo.h)]; photo.hover = photo.pts[photo.dragPt]; calibrate(); scheduleRefresh(); return; }
     if (photo.dragImg && photo.Hinv){
       const w = hApply(photo.Hinv, p[0], p[1]), d = photo.dragImg;
       const fx = d.ox > 0.05 ? clamp(d.fx0 - (w[0] - d.u) / d.ox, 0, 1) : 0.5;
       const fy = d.oy > 0.05 ? clamp(d.fy0 + (w[1] - d.v) / d.oy, 0, 1) : 0.5;
       imgPos[d.key] = { ...(imgPos[d.key] || {}), fx, fy };
-      photoRefresh(); return;
+      scheduleRefresh(); return;
     }
     if (photo.dragSet && photo.Hinv){
       const w = hApply(photo.Hinv, p[0], p[1]);
       state.photoDX = photo.dragSet.dx + (w[0] - photo.dragSet.u);
       state.photoDY = photo.dragSet.dy + (w[1] - photo.dragSet.v);
-      photoRefresh(); return;
+      scheduleRefresh(); return;
     }
-    cv.style.cursor = calib ? 'crosshair' : (photo.quads.some(q => inPoly(p, q)) ? 'move' : 'default');
-    if (calib){ photo.hover = p; photoRefresh(); }
+    if (e.pointerType !== 'mouse') return;
+    const overQuad = !calib && photo.quads.some(q => inPoly(p, q));
+    view.style.cursor = calib ? (inImg(p) ? 'crosshair' : (pv.z > 1 ? 'grab' : 'default')) : overQuad ? 'move' : (pv.z > 1 ? 'grab' : 'default');
+
   });
-  const up = () => { if (photo.dragPt >= 0 || photo.dragSet || photo.dragImg){ photo.dragPt = -1; photo.dragSet = null; photo.dragImg = null; persist(); renderFotoMode(); buildFraming(current); } };
-  cv.addEventListener('pointerup', up);
-  cv.addEventListener('pointercancel', up);
-  cv.addEventListener('pointerleave', () => { if (photo.hover && photo.dragPt < 0){ photo.hover = null; photoRefresh(); } });
+
+  const up = e => {
+    const had = ptrs.delete(e.pointerId);
+    if (pinch){ if (ptrs.size < 2) pinch = null; return; }
+    if (!had) return;
+    if (pend){
+      const pd = pend; pend = null; view.style.cursor = '';
+      if (!pd.pan && pd.add && e.type === 'pointerup'){
+        photo.pts.push(pd.p); photo.sel = photo.pts.length - 1;
+        if (photo.pts.length === 4){ photo.editing = true; calibrate(); }
+        renderFotoMode();
+      }
+      return;
+    }
+    if (photo.dragSet){
+      const d0 = photo.dragSet, nx = Number(state.photoDX) || 0, ny = Number(state.photoDY) || 0;
+      if (Math.abs(nx - d0.dx) > 0.05 || Math.abs(ny - d0.dy) > 0.05) pushMoveHist(d0.dx, d0.dy);
+    }
+    if (photo.dragPt >= 0 || photo.dragSet || photo.dragImg){ photo.dragPt = -1; photo.dragSet = null; photo.dragImg = null; persist(); renderFotoMode(); buildFraming(current); }
+  };
+  view.addEventListener('pointerup', up);
+  view.addEventListener('pointercancel', up);
+  view.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse' && photo.hover && photo.dragPt < 0 && !pend){ photo.hover = null; scheduleRefresh(); } });
 }
+window.addEventListener('resize', () => { if (state.mode === 'foto' && $('photoView')){ layoutPhotoView(); scheduleRefresh(); } else if (state.mode !== 'foto') fitSheet(); });
+// pr\u00e9via da folha encaixada na altura vis\u00edvel (s\u00f3 na tela; o arquivo exportado n\u00e3o muda)
+let sheetExpanded = false;
+function fitSheet(){
+  const sh = $('sheet'), svg = sh.querySelector(':scope > svg'), btn = $('viewBtn');
+  if (!svg || !btn) return;
+  const wide = window.matchMedia('(min-width:901px)').matches;
+  svg.classList.remove('fit'); svg.style.width = '';
+  if (!wide){ btn.hidden = true; return; }
+  const out = document.querySelector('.out'), cs = getComputedStyle(sh);
+  const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight), padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+  const W = Number(svg.getAttribute('width')), H = Number(svg.getAttribute('height'));
+  const innerW = sh.clientWidth - padX;
+  const top = 12 + sh.getBoundingClientRect().top - out.getBoundingClientRect().top + out.scrollTop;
+  const avail0 = window.innerHeight - top - 16 - padY - 2;
+  const fitsAlready = avail0 * W / H >= innerW - 1;
+  btn.hidden = fitsAlready;
+  const fitW = (avail0 - (fitsAlready ? 0 : btn.offsetHeight + 8)) * W / H;
+  btn.textContent = sheetExpanded ? 'Ajustar \u00e0 tela' : 'Ampliar pr\u00e9via';
+  if (fitsAlready || sheetExpanded) return;
+  svg.classList.add('fit');
+  svg.style.width = Math.max(Math.min(innerW, 480), fitW) + 'px';
+}
+$('sheet').addEventListener('click', e => { if (e.target.closest('#viewBtn')){ sheetExpanded = !sheetExpanded; if (!sheetExpanded) document.querySelector('.out').scrollTop = 0; fitSheet(); } });
+document.addEventListener('keydown', e => {
+  if (state.mode !== 'foto' || !$('photoView') || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (/^(INPUT|SELECT|TEXTAREA)$/.test((e.target && e.target.tagName) || '')) return;
+  if (e.key === '+' || e.key === '='){ e.preventDefault(); zoomAt(pv.vw / 2, pv.vh / 2, pv.z * 1.5); }
+  else if (e.key === '-' || e.key === '_'){ e.preventDefault(); zoomAt(pv.vw / 2, pv.vh / 2, pv.z / 1.5); }
+  else if (e.key === '0'){ e.preventDefault(); zoomFit(); }
+});
 function renderFotoMode(){
   const R = compute(photoState());
   current = R;
@@ -1552,6 +1711,11 @@ function renderFotoMode(){
   $('photoStep').textContent = photoStepText();
   $('photoAdjust').hidden = $('photoReset').hidden = photo.pts.length < 4;
   $('photoCenter').hidden = !photo.H;
+  $('photoCenter').disabled = !photoMoved();
+  $('photoCenter').classList.toggle('primary', photoMoved());
+  $('photoCenter').classList.toggle('ghost', !photoMoved());
+  $('photoUndo').hidden = !photo.H;
+  $('photoUndo').disabled = !moveHist.length;
   $('photoAdjust').textContent = photo.editing ? 'Confirmar ret\u00e2ngulo' : 'Ajustar cantos';
   $('photoAdjust').classList.toggle('primary', photo.editing);
   $('photoAdjust').classList.toggle('ghost', !photo.editing);
@@ -1573,7 +1737,9 @@ function renderFotoMode(){
   }
   let cv = $('photoCanvas');
   if (!cv){
-    $('sheet').innerHTML = '<div class="photoBar" id="photoBar"></div><canvas id="photoCanvas" tabindex="0" aria-label="Foto do cliente"></canvas><div class="photoExtra" id="photoExtra"></div>';
+    $('sheet').innerHTML = '<div class="photoBar" id="photoBar"></div><div class="photoView" id="photoView"><canvas id="photoCanvas" tabindex="0" aria-label="Foto do cliente"></canvas>'
+      + '<div class="zoomBar" id="zoomBar"><button type="button" data-zoom="out" title="Diminuir zoom (tecla -)" aria-label="Diminuir zoom">\u2212</button><span class="zv" id="zoomPct">100%</span><button type="button" data-zoom="in" title="Aumentar zoom (tecla +)" aria-label="Aumentar zoom">+</button><button type="button" class="zfit" data-zoom="fit" title="Ver a foto inteira (tecla 0)">Ajustar</button></div></div>'
+      + '<div class="photoExtra" id="photoExtra"></div>';
     cv = $('photoCanvas'); attachPhotoEvents(cv);
   }
   if (cv.width !== photo.w || cv.height !== photo.h){ cv.width = photo.w; cv.height = photo.h; }
@@ -1584,12 +1750,13 @@ function renderFotoMode(){
   let bh = `<p>${esc(photoStepText())}</p><div class="actions">`;
   if (photo.editing) bh += `<button type="button" class="btn primary sm" data-act="confirm">Confirmar ret\u00e2ngulo</button>`;
   if (!calib && images.length) bh += `<span class="dragSeg">Arrastar na foto move: <button type="button" class="btn sm${photo.dragMode !== 'img' ? ' primary' : ''}" data-act="dragFrames">os quadros</button><button type="button" class="btn sm${photo.dragMode === 'img' ? ' primary' : ''}" data-act="dragImg">a imagem dentro do quadro</button></span>`;
-  if (!calib) bh += `<button type="button" class="btn ghost sm" data-act="adjust">Ajustar cantos</button><button type="button" class="btn ghost sm" data-act="center">Centralizar quadros</button>`;
+  if (!calib) bh += `<button type="button" class="btn ghost sm" data-act="adjust">Ajustar cantos</button><button type="button" class="btn sm${photoMoved() ? ' primary' : ' ghost'}" data-act="center"${photoMoved() ? '' : ' disabled'}>Voltar \u00e0 posi\u00e7\u00e3o de refer\u00eancia</button><button type="button" class="btn ghost sm" data-act="undo" title="Ctrl+Z"${moveHist.length ? '' : ' disabled'}>Desfazer movimento</button>`;
   if (photo.pts.length) bh += `<button type="button" class="btn ghost sm" data-act="reset">Remarcar do zero</button>`;
   bh += `</div>`;
   if (photo.editing) bh += `<div class="refRow"><label>Largura real <small>cm</small><input type="text" id="barRefW" inputmode="decimal" value="${esc(state.refW || '')}"></label><label>Altura real <small>cm</small><input type="text" id="barRefH" inputmode="decimal" value="${esc(state.refH || '')}"></label></div>`;
   if (bar.dataset.sig !== bh){ bar.innerHTML = bh; bar.dataset.sig = bh; }
   bar.hidden = false;
+  layoutPhotoView();
   photoRefresh();
   // compara\u00e7\u00e3o de cores: miniaturas das demais cores
   const cols = selectedColors(), ex = $('photoExtra');
@@ -1627,7 +1794,7 @@ $('photoFile').addEventListener('change', e => {
       const x = c.getContext('2d'); x.drawImage(img, 0, 0, c.width, c.height);
       try { photo.pix = x.getImageData(0, 0, c.width, c.height); } catch(err){ photo.pix = null; }
       Object.assign(photo, { img, cv: c, w: c.width, h: c.height, pts: [], H: null, Hinv: null, editing: false, sel: -1, hover: null, quads: [] });
-      state.photoDX = 0; state.photoDY = 0;
+      state.photoDX = 0; state.photoDY = 0; moveHist.length = 0; pv.z = 1; pv.tx = 0; pv.ty = 0;
       const old = $('photoCanvas'); if (old) $('sheet').innerHTML = '';
       renderFotoMode();
     };
@@ -1645,7 +1812,8 @@ $('sheet').addEventListener('click', e => {
     if (!photo.H){ setStatus('Os 4 pontos n\u00e3o formam um ret\u00e2ngulo v\u00e1lido. Ajuste os cantos.'); return; }
     photo.editing = false; photo.sel = -1; photo.hover = null; setStatus('');
   } else if (act === 'adjust'){ photo.editing = true; if (photo.sel < 0) photo.sel = 0; }
-  else if (act === 'center'){ state.photoDX = 0; state.photoDY = 0; persist(); }
+  else if (act === 'center'){ resetToRef(); return; }
+  else if (act === 'undo'){ undoMove(); return; }
   else if (act === 'dragFrames'){ photo.dragMode = 'frames'; }
   else if (act === 'dragImg'){ photo.dragMode = 'img'; }
   else if (act === 'reset'){ photo.pts = []; photo.H = photo.Hinv = null; photo.editing = false; photo.sel = -1; }
@@ -1673,7 +1841,14 @@ document.addEventListener('keydown', e => {
   const p = photo.pts[photo.sel]; photo.pts[photo.sel] = [clamp(p[0] + mv[0], 0, photo.w), clamp(p[1] + mv[1], 0, photo.h)];
   photo.hover = null; calibrate(); renderFotoMode();
 });
-$('photoCenter').addEventListener('click', () => { state.photoDX = 0; state.photoDY = 0; persist(); renderFotoMode(); });
+$('photoCenter').addEventListener('click', resetToRef);
+$('photoUndo').addEventListener('click', undoMove);
+document.addEventListener('keydown', e => {
+  if (state.mode !== 'foto' || !(e.ctrlKey || e.metaKey) || e.shiftKey || e.key.toLowerCase() !== 'z') return;
+  if (/^(INPUT|SELECT|TEXTAREA)$/.test((e.target && e.target.tagName) || '')) return;
+  if (!moveHist.length) return;
+  e.preventDefault(); undoMove();
+});
 function setMode(m){
   state.mode = m; persist(); updateUI();
   $('sheet').innerHTML = '';
@@ -1779,9 +1954,12 @@ $('artClear').addEventListener('click', () => { images = []; imgPos = {}; images
 $('f').addEventListener('input', e => {
   const id = e.target.id;
   if (!id || id.startsWith('size_') || id.startsWith('pick') || id.startsWith('fr') || id === 'wallColor' || e.target.closest('#colorEditor')) return;
-  if (id === 'furn'){
-    const t = e.target.value;
-    if (FURN[t]){ $('furnW').value = FURN[t].w; $('furnH').value = FURN[t].h; $('furnGap').value = FURN[t].gap; $('furnColor').value = FURN[t].color; }
+  if (id === 'refSel'){
+    const v = e.target.value;
+    state.ref = v === 'espaco' ? 'espaco' : 'piso';
+    const t = FURN[v] ? v : 'none';
+    if (FURN[t] && t !== state.furn){ $('furnW').value = FURN[t].w; $('furnH').value = FURN[t].h; $('furnGap').value = FURN[t].gap; $('furnColor').value = FURN[t].color; }
+    state.furn = t;
   }
   if (id === 'compare'){
     readForm();
@@ -1791,7 +1969,18 @@ $('f').addEventListener('input', e => {
   readForm(); if (/^ref/.test(id)) calibrate(); buildSizes(); updateUI(); render(); persist(); setStatus('');
 });
 $('f').addEventListener('submit', e => e.preventDefault());
-$('btnExample').addEventListener('click', () => { state = JSON.parse(JSON.stringify(EXAMPLE)); images = []; fillForm(); render(); persist(); });
+let exampleArm = 0;
+$('btnExample').addEventListener('click', () => {
+  const b = $('btnExample');
+  if (!exampleArm){
+    b.textContent = 'Confirmar: substituir tudo pelo exemplo?'; b.classList.add('primary'); b.classList.remove('ghost');
+    exampleArm = setTimeout(() => { exampleArm = 0; b.textContent = 'Carregar exemplo'; b.classList.remove('primary'); b.classList.add('ghost'); }, 4000);
+    return;
+  }
+  clearTimeout(exampleArm); exampleArm = 0;
+  b.textContent = 'Carregar exemplo'; b.classList.remove('primary'); b.classList.add('ghost');
+  state = JSON.parse(JSON.stringify(EXAMPLE)); images = []; fillForm(); render(); persist();
+});
 
 load(); fillForm(); render();
 </script>
